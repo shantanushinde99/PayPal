@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowUpRight, Hourglass, Lock, ReceiptText, ShieldCheck, Undo2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, ExternalLink, Hourglass, Lock, ReceiptText, ShieldCheck, Undo2 } from "lucide-react";
+import { env } from "@/lib/env";
 import { requireUser } from "@/lib/session";
 import { loadPaymentsForUser, type PaymentItem } from "@/lib/payment-history";
 import { walletSummary } from "@/lib/wallet";
@@ -32,6 +33,7 @@ export default async function Wallet({ searchParams }: { searchParams: Promise<{
   const totals = walletSummary(all);
   const main = totals.find((t) => t.currency === "USD") ?? totals[0];
   const shown = all.filter(filter.keep);
+  const net = (main?.received ?? 0) - (main?.paid ?? 0);
   const days = [...new Set(shown.map((p) => dayLabel(p.createdAt)))];
 
   const stats = main ? [
@@ -57,9 +59,15 @@ export default async function Wallet({ searchParams }: { searchParams: Promise<{
                 <p className="text-sm text-sky-200">Linked PayPal account</p>
                 <p className="break-all font-semibold">{user.email}</p>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold"><ShieldCheck aria-hidden className="size-4 text-emerald-300" /> Verified via Log in with PayPal</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 text-xs font-semibold"><ShieldCheck aria-hidden className="size-4 text-emerald-300" /> Verified via Log in with PayPal</span>
+                {/* PayPal doesn't share personal balances with apps, so we link to it instead of guessing. */}
+                <a href={`${env.PAYPAL_WEB_BASE}/myaccount/summary`} target="_blank" rel="noreferrer" className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-white px-3 text-xs font-semibold text-brand-strong transition-colors hover:bg-sky-50">
+                  Open PayPal to see your balance <ExternalLink aria-hidden className="size-3.5" />
+                </a>
+              </div>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-6 sm:grid-cols-3">
               <div>
                 <p className="inline-flex items-center gap-1.5 text-sm text-sky-200"><ArrowDownLeft aria-hidden className="size-4" /> Received</p>
                 <p className="font-display text-4xl font-bold tabular-nums md:text-5xl">{formatMoney(main?.received ?? 0, main?.currency ?? "USD")}</p>
@@ -67,6 +75,10 @@ export default async function Wallet({ searchParams }: { searchParams: Promise<{
               <div>
                 <p className="inline-flex items-center gap-1.5 text-sm text-sky-200"><ArrowUpRight aria-hidden className="size-4" /> Paid out</p>
                 <p className="font-display text-4xl font-bold tabular-nums md:text-5xl">{formatMoney(main?.paid ?? 0, main?.currency ?? "USD")}</p>
+              </div>
+              <div>
+                <p className="text-sm text-sky-200">Net with Verifund</p>
+                <p className="font-display text-4xl font-bold tabular-nums md:text-5xl">{net >= 0 ? "+" : "−"}{formatMoney(Math.abs(net), main?.currency ?? "USD")}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
