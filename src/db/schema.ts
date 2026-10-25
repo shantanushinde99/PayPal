@@ -18,7 +18,7 @@ export const users = pgTable("users", {
   demoGroup: uuid(),
   payoutEmail: text(), // where payments go if not the login email (demo users → sandbox account)
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 export const jobs = pgTable("jobs", {
   id: uuid().primaryKey().defaultRandom(),
@@ -32,7 +32,7 @@ export const jobs = pgTable("jobs", {
   description: text().notNull(),
   currency: text().notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 export const milestones = pgTable("milestones", {
   id: uuid().primaryKey().defaultRandom(),
@@ -50,7 +50,7 @@ export const milestones = pgTable("milestones", {
   payoutBatchId: text(),
   failReason: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 export const checklistItems = pgTable("checklist_items", {
   id: uuid().primaryKey().defaultRandom(),
@@ -58,7 +58,7 @@ export const checklistItems = pgTable("checklist_items", {
   position: integer().notNull(),
   requirement: text().notNull(),
   lintNote: text(), // checklist checker hint, null = fine
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 export const submissions = pgTable("submissions", {
   id: uuid().primaryKey().defaultRandom(),
@@ -68,7 +68,7 @@ export const submissions = pgTable("submissions", {
   afterPhoto: text(),
   report: jsonb(), // SiteReport for website proofs
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 export const verdictItems = pgTable("verdict_items", {
   id: uuid().primaryKey().defaultRandom(),
@@ -78,7 +78,7 @@ export const verdictItems = pgTable("verdict_items", {
   reason: text().notNull(),
   evidence: text(),
   pageUrl: text(),
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 // Every money movement, in structured form (the activity log has the same events as text).
 export const payments = pgTable("payments", {
@@ -89,7 +89,7 @@ export const payments = pgTable("payments", {
   currency: text().notNull(),
   paypalId: text().notNull(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 // Audit log + live agent steps. image = base64 JPEG (demo scale).
 export const events = pgTable("events", {
@@ -99,7 +99,7 @@ export const events = pgTable("events", {
   message: text().notNull(),
   image: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
-});
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
 export type Job = typeof jobs.$inferSelect;
 export type Milestone = typeof milestones.$inferSelect;
