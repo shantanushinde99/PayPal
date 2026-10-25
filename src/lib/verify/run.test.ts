@@ -19,7 +19,8 @@ describe("runVerification", () => {
     await runVerification(m.id, randomUUID()); // submission does not exist
     const after = await get(m.id);
     expect(after.state).toBe("failed");
-    expect(after.failReason).toMatch(/could not finish/i);
+    expect(after.failReason).toMatch(/money is safe/i);
+    expect(after.failReason).not.toMatch(/submission not found/);
   });
 });
 
@@ -40,5 +41,18 @@ describe("runVerification picks the checker by proof type", () => {
     await runVerification(m.id, sub.id);
     expect(checkers.checkPhotos).toHaveBeenCalled();
     expect(checkers.checkWebsite).not.toHaveBeenCalled();
+  });
+});
+
+describe("runVerification when the AI is busy", () => {
+  it("tells the freelancer the AI is busy instead of blaming the checklist", async () => {
+    const m = await seedMilestone({ state: "verifying", proofType: "photo" });
+    const jpeg = "data:image/jpeg;base64,AAAA";
+    const [sub] = await db.insert(submissions).values({ milestoneId: m.id, beforePhoto: jpeg, afterPhoto: jpeg }).returning();
+    checkers.checkPhotos.mockRejectedValue(new Error('{"error":{"code":503,"status":"UNAVAILABLE"}}'));
+    await runVerification(m.id, sub.id);
+    const after = await get(m.id);
+    expect(after.state).toBe("failed");
+    expect(after.failReason).toMatch(/AI reviewer is busy/);
   });
 });

@@ -55,7 +55,10 @@ function StateBanner({ m, currency, freelancer, blocked }: { m: M; currency: str
     case "funding": return <Banner tone="bg-sky-50 text-sky-900" icon={<Wallet aria-hidden className="size-5 shrink-0" />}><p>Waiting for the client to approve the payment on PayPal.</p></Banner>;
     case "funded": return <Banner tone="bg-sky-50 text-sky-900" icon={<Lock aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{amount} is held by PayPal.</p><p>{blocked ? "Starts once the previous milestone is paid." : "It is released automatically when the AI verifies every checklist item."}</p></Banner>;
     case "verifying": return <Banner tone="bg-violet-50 text-violet-900" icon={<Loader2 aria-hidden className="size-5 shrink-0 animate-spin" />}><p className="font-semibold">The AI agent is checking the proof…</p><p>Live steps appear in the activity log below.</p></Banner>;
-    case "failed": return <Banner tone="bg-amber-50 text-amber-900" icon={<AlertTriangle aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{m.failReason ?? "Some items aren't met yet."}</p><p>The money stays on hold. Fix the items marked below and resubmit.</p></Banner>;
+    case "failed": {
+      const workMissing = !m.failReason || /checklist item/.test(m.failReason); // otherwise it was our side (AI busy, browser down)
+      return <Banner tone="bg-amber-50 text-amber-900" icon={<AlertTriangle aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{m.failReason ?? "Some items aren't met yet."}</p><p>{workMissing ? "The money stays on hold. Fix the items marked below and resubmit." : "Nothing for you to fix: just resubmit the same proof."}</p></Banner>;
+    }
     case "passed": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<Loader2 aria-hidden className="size-5 shrink-0 animate-spin" />}><p className="font-semibold">All items verified. Releasing {amount}…</p></Banner>;
     case "paid_out": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<CheckCircle2 aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{amount} paid to {freelancer}.</p></Banner>;
     default: return null;

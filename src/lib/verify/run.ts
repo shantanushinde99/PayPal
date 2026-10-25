@@ -7,6 +7,7 @@ import { transition } from "@/db/transition";
 import { checkWebsite } from "@/lib/verify/website";
 import { shouldRelease, type VerdictItem } from "@/lib/release";
 import { release } from "@/lib/payments";
+import { friendlyError } from "@/lib/friendly-error";
 
 const logError = (milestoneId: string, message: string) => db.insert(events).values({ milestoneId, kind: "error", message });
 
@@ -16,7 +17,8 @@ export async function runVerification(milestoneId: string, submissionId: string)
     passed = await verify(milestoneId, submissionId);
   } catch (e) {
     // Anything unexpected: leave the money on hold and let the freelancer resubmit.
-    const reason = `The check could not finish: ${(e as Error).message}`;
+    console.error("verification crashed", milestoneId, e);
+    const reason = friendlyError(e);
     await logError(milestoneId, reason);
     await transition(milestoneId, "verifying", "failed", { failReason: reason });
     return;
@@ -25,7 +27,8 @@ export async function runVerification(milestoneId: string, submissionId: string)
   try {
     await release(milestoneId);
   } catch (e) {
-    await logError(milestoneId, `Payment step failed: ${(e as Error).message}`);
+    console.error("release failed", milestoneId, e);
+    await logError(milestoneId, friendlyError(e));
   }
 }
 
@@ -40,6 +43,7 @@ async function verify(milestoneId: string, submissionId: string): Promise<boolea
     .where(eq(checklistItems.milestoneId, milestoneId)).orderBy(asc(checklistItems.position));
 
   let verdict: VerdictItem[];
+  let checkError: string | undefined;
   try {
     if (m.proofType === "photo") {
       verdict = await checkPhotos({ before: parsePhoto(sub.beforePhoto ?? ""), after: parsePhoto(sub.afterPhoto ?? ""), checklist, log });
@@ -50,7 +54,8 @@ async function verify(milestoneId: string, submissionId: string): Promise<boolea
       await db.update(submissions).set({ report: r.report }).where(eq(submissions.id, submissionId));
     }
   } catch (e) {
-    const reason = `The check could not finish: ${(e as Error).message}`;
+    console.error("check failed", milestoneId, e);
+    const reason = (checkError = friendlyError(e));
     await logError(milestoneId, reason);
     verdict = checklist.map((c) => ({ checklistItemId: c.id, status: "unsure", reason }));
   }
@@ -58,7 +63,8 @@ async function verify(milestoneId: string, submissionId: string): Promise<boolea
 
   if (!shouldRelease(verdict)) {
     const missing = verdict.filter((v) => v.status !== "pass").length;
-    await transition(milestoneId, "verifying", "failed", { failReason: `${missing} checklist item${missing === 1 ? "" : "s"} still need${missing === 1 ? "s" : ""} work` });
+    const failReason = checkError ?? `${missing} checklist item${missing === 1 ? "" : "s"} still need${missing === 1 ? "s" : ""} work`;
+    await transition(milestoneId, "verifying", "failed", { failReason });
     return false;
   }
   await transition(milestoneId, "verifying", "passed");
