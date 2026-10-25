@@ -46,7 +46,9 @@ export async function auditSite(
   { now = Date.now }: { now?: () => number } = {},
 ): Promise<SiteReport> {
   const crawlUntil = now() + CRAWL_MS;
-  const origin = new URL(start).origin;
+  // Only crawl the folder the site lives in: on shared hosts (GitHub Pages, /~user/) the rest is someone else's.
+  const scope = new URL(start).pathname.replace(/[^/]*$/, "");
+  const inScope = (u: string) => sameSite(u, start) && new URL(u).pathname.startsWith(scope);
   const errors: string[] = [];
   page.on("console", (m) => { if (m.type() === "error") errors.push(m.text().slice(0, 200)); });
 
@@ -56,7 +58,7 @@ export async function auditSite(
   const linkSource = new Map<string, { foundOn: string; text: string }>();
   let phoneScreenshot: string | undefined;
 
-  await log(`Crawling ${origin} (up to ${MAX_PAGES} pages)`);
+  await log(`Crawling ${start} (up to ${MAX_PAGES} pages)`);
   while (queue.length && pages.length < MAX_PAGES && now() < crawlUntil) {
     const [url, depth] = queue.shift()!;
     errors.length = 0;
@@ -84,12 +86,13 @@ export async function auditSite(
     pages.push({ url, status, offsite: false, ...facts, consoleErrors: [...errors], phoneOverflow, screenshot });
     await log(`Checked ${new URL(url).pathname} (HTTP ${status})`, pages.length === 1 ? screenshot : undefined);
 
+    if (status >= 400) continue; // an error page's links (e.g. a host's 404 page) aren't the site's links
     for (const l of facts.links) {
       const kind = classifyLink(l.href, here);
       const n = kind === "internal" || kind === "external" ? normalizeUrl(l.href, here) : null;
       if (!n) continue;
       if (!linkSource.has(n)) linkSource.set(n, { foundOn: url, text: l.text });
-      if (kind === "internal" && depth < MAX_DEPTH && !seen.has(n) && isPageUrl(n)) { seen.add(n); queue.push([n, depth + 1]); }
+      if (kind === "internal" && inScope(n) && depth < MAX_DEPTH && !seen.has(n) && isPageUrl(n)) { seen.add(n); queue.push([n, depth + 1]); }
     }
   }
 

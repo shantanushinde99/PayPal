@@ -49,4 +49,18 @@ describe("auditSite", () => {
     expect(r.truncated).toBe(true);
     expect(r.pages.length).toBeLessThan(6);
   });
+
+  it("stays inside the folder the site lives in and ignores links on error pages", async () => {
+    const { page, context } = fakeBrowser({
+      "https://host.test/me/shop/": { status: 200, links: ["about.html", "missing.html", "/", "/other-project/"] },
+      "https://host.test/me/shop/about.html": { status: 200 },
+      "https://host.test/me/shop/missing.html": { status: 404, links: ["/help"] },
+      "https://host.test/": { status: 200 },
+      "https://host.test/other-project/": { status: 200 },
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const r = await auditSite(context as any, page as any, "https://host.test/me/shop/", async () => {});
+    expect(r.pages.map((p) => new URL(p.url).pathname)).toEqual(["/me/shop/", "/me/shop/about.html", "/me/shop/missing.html"]);
+    expect(r.links.find((l) => l.url.endsWith("/help"))).toBeUndefined();
+  });
 });
