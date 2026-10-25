@@ -13,6 +13,7 @@ declare module "next-auth" {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
+  pages: { signIn: "/" }, // no built-in sign-in page listing providers
   providers: [{
     id: "paypal",
     name: "PayPal",

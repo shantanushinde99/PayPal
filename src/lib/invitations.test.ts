@@ -82,3 +82,22 @@ describe("resolveHire", () => {
     await expect(resolveHire(client, {})).rejects.toThrow(/choose/i);
   });
 });
+
+describe("money already held", () => {
+  it("editing a draft milestone doesn't reopen a job that already has funded work", async () => {
+    const { free, job } = await invitedJob();
+    await acceptJob(job.id, free);
+    await db.insert(milestones).values({ jobId: job.id, position: 1, title: "M2", amountMinor: 500, state: "funded", authorizationId: "A" });
+    await resetAcceptance(job.id);
+    expect((await reload(job.id)).status).toBe("accepted");
+  });
+  it("a freelancer can't decline once money is held", async () => {
+    const { free, job } = await invitedJob();
+    await db.insert(milestones).values({ jobId: job.id, position: 1, title: "M2", amountMinor: 500, state: "funded", authorizationId: "A" });
+    await expect(declineJob(job.id, free, "")).rejects.toThrow(/already funded/i);
+  });
+  it("demo login addresses can't be invited by email", async () => {
+    const client = await mk({ roles: ["client"] });
+    await expect(resolveHire(client, { email: "priya.123@demo.verifund.app" })).rejects.toThrow(/demo/i);
+  });
+});

@@ -65,8 +65,8 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
     }).where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
     await tx.delete(checklistItems).where(eq(checklistItems.milestoneId, milestoneId));
     await tx.insert(checklistItems).values(finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement, lintNote: notes[position] })));
+    await resetAcceptance(row.j.id, tx); // same transaction: no window to fund the old version
   });
-  await resetAcceptance(row.j.id);
   revalidatePath(`/jobs/${row.j.id}`);
 }
 

@@ -1,6 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, users, type User } from "@/db/schema";
+import { jobs, milestones, users, type User } from "@/db/schema";
 import { jobRole } from "@/lib/job-access";
 
 async function invitation(jobId: string, user: Pick<User, "id" | "email">) {
@@ -19,15 +19,22 @@ export async function acceptJob(jobId: string, user: Pick<User, "id" | "email" |
   if (!row) throw new Error("This job was already answered.");
 }
 
+// Any milestone past draft means PayPal is (or was) holding money for this agreement.
+const hasMoney = async (jobId: string, tx: Pick<typeof db, "select"> = db) =>
+  (await tx.select({ state: milestones.state }).from(milestones).where(eq(milestones.jobId, jobId))).some((m) => m.state !== "draft");
+
 export async function declineJob(jobId: string, user: Pick<User, "id" | "email">, note: string) {
   await invitation(jobId, user);
+  if (await hasMoney(jobId)) throw new Error("Part of this job is already funded, so it can't be declined. Ask the client to cancel it.");
   await db.update(jobs).set({ status: "declined", declineNote: note.trim().slice(0, 300) || null })
     .where(and(eq(jobs.id, jobId), eq(jobs.status, "invited")));
 }
 
 // The client changed what was agreed: the freelancer must accept the new version.
-export async function resetAcceptance(jobId: string) {
-  await db.update(jobs).set({ status: "invited", acceptedAt: null }).where(and(eq(jobs.id, jobId), eq(jobs.status, "accepted")));
+// Not once money is held: that would block proof on funded work. Later drafts stay editable then.
+export async function resetAcceptance(jobId: string, tx: Pick<typeof db, "select" | "update"> = db) {
+  if (await hasMoney(jobId, tx)) return;
+  await tx.update(jobs).set({ status: "invited", acceptedAt: null }).where(and(eq(jobs.id, jobId), eq(jobs.status, "accepted")));
 }
 
 type Hirer = Pick<User, "id" | "email" | "isDemo" | "demoGroup">;
@@ -46,5 +53,6 @@ export async function resolveHire(client: Hirer, input: { freelancerId?: string;
   if (client.isDemo) throw new Error("In the demo, hire one of the demo freelancers from the directory.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("That email address doesn't look right.");
   if (email === client.email) throw new Error("You can't hire yourself.");
+  if (email.endsWith("@demo.verifund.app")) throw new Error("Demo accounts can't be invited.");
   return { freelancerId: null, freelancerEmail: email };
 }

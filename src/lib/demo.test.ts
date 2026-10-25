@@ -1,10 +1,17 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/env", async (orig) => ({ env: { ...(await orig<typeof import("@/lib/env")>()).env, DEMO_PAYOUT_EMAIL: "demo-free@sandbox.test" } }));
 import { randomUUID } from "node:crypto";
 import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { jobs, users } from "@/db/schema";
+import { and, gt } from "drizzle-orm";
 import { createDemoWorkspace, deleteOldDemos, demoAuthorize, signSwitch, verifySwitch } from "./demo";
+
+// The sign-in rate limit counts demo users from the last minute; earlier runs shouldn't count.
+beforeEach(async () => {
+  await db.update(users).set({ createdAt: new Date(Date.now() - 120_000) })
+    .where(and(eq(users.isDemo, true), gt(users.createdAt, new Date(Date.now() - 60_000))));
+});
 
 describe("demo workspaces", () => {
   it("creates an isolated, ready-to-use workspace", async () => {
@@ -41,5 +48,15 @@ describe("demo workspaces", () => {
     expect(await db.select().from(jobs).where(eq(jobs.clientId, old.clientId))).toEqual([]);
     expect((await db.select().from(users).where(eq(users.demoGroup, fresh.group))).length).toBe(4);
     expect((await db.select().from(users).where(eq(users.id, real.id))).length).toBe(1);
+  });
+});
+
+describe("demo sign-in guards", () => {
+  it("refuses when too many workspaces were just created", async () => {
+    const { DEMO_RATE_LIMIT } = await import("./demo");
+    const group = randomUUID();
+    await db.insert(users).values(Array.from({ length: DEMO_RATE_LIMIT * 4 }, (_, i) => ({ email: `burst-${i}-${group}@demo.verifund.app`, isDemo: true, demoGroup: group })));
+    expect(await demoAuthorize({})).toBeNull();
+    await db.delete(users).where(eq(users.demoGroup, group));
   });
 });

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, payments, users } from "@/db/schema";
+import { jobs, milestones, payments, users } from "@/db/schema";
 import { seedMilestone } from "@/test/fixtures";
 import { loadPaymentsForUser } from "./payment-history";
 
@@ -33,5 +33,17 @@ describe("loadPaymentsForUser", () => {
     const [client] = await db.select().from(users).where(eq(users.id, job.clientId));
     const hold = (await loadPaymentsForUser(client, { jobId: job.id })).find((p) => p.kind === "hold")!;
     expect(hold.view).toMatchObject({ status: "Settled", sign: "", tone: "returned" });
+  });
+});
+
+describe("payment history names", () => {
+  it("uses display names when known, so demo login emails never show", async () => {
+    const [client] = await db.insert(users).values({ email: `c-${randomUUID()}@demo.verifund.app`, displayName: "Alex Rivera" }).returning();
+    const [free] = await db.insert(users).values({ email: `f-${randomUUID()}@demo.verifund.app`, displayName: "Priya Shah" }).returning();
+    const [job] = await db.insert(jobs).values({ clientId: client.id, freelancerId: free.id, freelancerEmail: "payout@sandbox.test", status: "accepted", title: "T", description: "d", currency: "USD" }).returning();
+    const [m] = await db.insert(milestones).values({ jobId: job.id, position: 0, title: "M", amountMinor: 100, state: "paid_out" }).returning();
+    await db.insert(payments).values({ milestoneId: m.id, kind: "paid", amountMinor: 100, currency: "USD", paypalId: "C" });
+    expect((await loadPaymentsForUser(client, { jobId: job.id }))[0].view.title).toBe("Paid to Priya Shah");
+    expect((await loadPaymentsForUser(free, { jobId: job.id }))[0].view.title).toBe("Received from Alex Rivera");
   });
 });

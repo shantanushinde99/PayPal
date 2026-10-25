@@ -1,5 +1,5 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, count, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { db } from "@/db";
 import { checklistItems, events, jobs, milestones, payments, submissions, users, verdictItems } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -62,33 +62,42 @@ export async function verifySwitch(token: string) {
 }
 
 // next-auth Credentials authorize. Visitor input can't name a user: only a signed ticket can.
+export const DEMO_RATE_LIMIT = 10; // new workspaces per minute, across all visitors
+
 export async function demoAuthorize(credentials: Partial<Record<string, unknown>>) {
+  if (!demoEnabled()) return null; // the provider exists even when the demo is off
   if (typeof credentials.switch === "string" && credentials.switch) {
     const u = await verifySwitch(credentials.switch);
     return u ? { id: u.id, email: u.email, name: u.displayName } : null;
   }
+  const [recent] = await db.select({ n: count() }).from(users)
+    .where(and(eq(users.isDemo, true), gt(users.createdAt, new Date(Date.now() - 60_000))));
+  if (recent.n >= DEMO_RATE_LIMIT * 4) return null; // 4 users per workspace
   const ws = await createDemoWorkspace();
   const [u] = await db.select().from(users).where(eq(users.id, ws.clientId));
   return { id: u.id, email: u.email, name: u.displayName };
 }
 
 export async function deleteOldDemos(hours = 48) {
-  const old = await db.select({ id: users.id }).from(users)
-    .where(and(eq(users.isDemo, true), lt(users.createdAt, new Date(Date.now() - hours * 3600_000))));
-  if (!old.length) return 0;
-  const ids = old.map((u) => u.id);
-  const js = (await db.select({ id: jobs.id }).from(jobs).where(inArray(jobs.clientId, ids))).map((j) => j.id);
-  const ms = js.length ? (await db.select({ id: milestones.id }).from(milestones).where(inArray(milestones.jobId, js))).map((m) => m.id) : [];
-  if (ms.length) {
-    const subs = (await db.select({ id: submissions.id }).from(submissions).where(inArray(submissions.milestoneId, ms))).map((s) => s.id);
-    if (subs.length) await db.delete(verdictItems).where(inArray(verdictItems.submissionId, subs));
-    await db.delete(submissions).where(inArray(submissions.milestoneId, ms));
-    await db.delete(payments).where(inArray(payments.milestoneId, ms));
-    await db.delete(events).where(inArray(events.milestoneId, ms));
-    await db.delete(checklistItems).where(inArray(checklistItems.milestoneId, ms));
-    await db.delete(milestones).where(inArray(milestones.id, ms));
-  }
-  if (js.length) await db.delete(jobs).where(inArray(jobs.id, js));
-  await db.delete(users).where(inArray(users.id, ids));
-  return ids.length;
+  const cutoff = new Date(Date.now() - hours * 3600_000);
+  const groups = (await db.selectDistinct({ g: users.demoGroup }).from(users)
+    .where(and(eq(users.isDemo, true), lt(users.createdAt, cutoff)))).flatMap((r) => (r.g ? [r.g] : []));
+  if (!groups.length) return 0;
+  return db.transaction(async (tx) => {
+    const ids = (await tx.select({ id: users.id }).from(users).where(and(eq(users.isDemo, true), inArray(users.demoGroup, groups)))).map((u) => u.id);
+    const js = (await tx.select({ id: jobs.id }).from(jobs).where(or(inArray(jobs.clientId, ids), inArray(jobs.freelancerId, ids)))).map((j) => j.id);
+    const ms = js.length ? (await tx.select({ id: milestones.id }).from(milestones).where(inArray(milestones.jobId, js))).map((m) => m.id) : [];
+    if (ms.length) {
+      const subs = (await tx.select({ id: submissions.id }).from(submissions).where(inArray(submissions.milestoneId, ms))).map((s) => s.id);
+      if (subs.length) await tx.delete(verdictItems).where(inArray(verdictItems.submissionId, subs));
+      await tx.delete(submissions).where(inArray(submissions.milestoneId, ms));
+      await tx.delete(payments).where(inArray(payments.milestoneId, ms));
+      await tx.delete(events).where(inArray(events.milestoneId, ms));
+      await tx.delete(checklistItems).where(inArray(checklistItems.milestoneId, ms));
+      await tx.delete(milestones).where(inArray(milestones.id, ms));
+    }
+    if (js.length) await tx.delete(jobs).where(inArray(jobs.id, js));
+    await tx.delete(users).where(inArray(users.id, ids));
+    return ids.length;
+  });
 }
