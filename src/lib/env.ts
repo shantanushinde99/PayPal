@@ -13,5 +13,7 @@ export const env = z
     DATABASE_URL: z.string().min(1),
     AUTH_SECRET: z.string().min(1),
     APP_URL: z.url(),
+    // direct: capture pays the freelancer (works everywhere). payouts: capture to platform, then Payouts API (needs Payouts eligibility).
+    PAYOUT_MODE: z.enum(["direct", "payouts"]).default("direct"),
   })
   .parse(process.env);

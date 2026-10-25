@@ -38,7 +38,7 @@ async function pp(path: string, body?: unknown, reqId?: string): Promise<any> {
 }
 
 export async function createOrder(o: {
-  milestoneId: string; title: string; amountMinor: number; currency: string; returnUrl: string; cancelUrl: string;
+  milestoneId: string; title: string; amountMinor: number; currency: string; returnUrl: string; cancelUrl: string; payeeEmail?: string;
 }) {
   const order = await pp("/v2/checkout/orders", {
     intent: "AUTHORIZE",
@@ -46,6 +46,7 @@ export async function createOrder(o: {
       reference_id: o.milestoneId,
       description: o.title.slice(0, 127),
       amount: { currency_code: o.currency, value: toPayPalValue(o.amountMinor, o.currency) },
+      ...(o.payeeEmail && { payee: { email_address: o.payeeEmail } }),
     }],
     payment_source: { paypal: { experience_context: {
       brand_name: "Proof-of-Done",

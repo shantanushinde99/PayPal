@@ -19,12 +19,14 @@ const logPayment = (milestoneId: string, message: string) =>
 
 export async function startFunding(milestoneId: string) {
   const { m, j, state } = await load(milestoneId);
+  const direct = m.state === "draft" ? env.PAYOUT_MODE === "direct" : m.direct; // mode is fixed at first funding
   const { orderId, approveUrl } = await createOrder({
     milestoneId, title: `${j.title} — ${m.title}`, amountMinor: m.amountMinor, currency: j.currency,
     returnUrl: `${env.APP_URL}/api/paypal/return?milestone=${milestoneId}`,
     cancelUrl: `${env.APP_URL}/jobs/${j.id}`,
+    payeeEmail: direct ? j.freelancerEmail : undefined,
   });
-  await transition(milestoneId, state, "funding", { orderId });
+  await transition(milestoneId, state, "funding", { orderId, direct });
   return approveUrl;
 }
 
@@ -61,6 +63,11 @@ export async function release(milestoneId: string) {
   if (state !== "passed") throw new Error(`Only verified milestones can be paid (this one is ${state})`);
   const captureId = m.captureId ?? await captureAuthorization(m.authorizationId!, milestoneId);
   await db.update(milestones).set({ captureId }).where(eq(milestones.id, milestoneId));
+  if (m.direct) {
+    await transition(milestoneId, "passed", "paid_out");
+    await logPayment(milestoneId, `Paid ${formatMoney(m.amountMinor, j.currency)} directly to ${j.freelancerEmail} (capture ${captureId})`);
+    return;
+  }
   await logPayment(milestoneId, `Captured ${formatMoney(m.amountMinor, j.currency)} (capture ${captureId})`);
 
   const amount = payoutMinor(m.amountMinor);

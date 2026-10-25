@@ -8,7 +8,7 @@ const pp = vi.hoisted(() => ({
   createOrder: vi.fn(), authorizeOrder: vi.fn(), captureAuthorization: vi.fn(), voidAuthorization: vi.fn(), createPayout: vi.fn(),
 }));
 vi.mock("@/lib/paypal", () => pp);
-import { release, cancel, completeFunding } from "./payments";
+import { release, cancel, completeFunding, startFunding } from "./payments";
 
 const stateOf = async (id: string) => (await db.select().from(milestones).where(eq(milestones.id, id)))[0].state;
 
@@ -52,5 +52,26 @@ describe("completeFunding", () => {
     const m = await seedMilestone({ state: "funded", orderId: "O1", authorizationId: "AUTH" });
     await expect(completeFunding(m.id, "O1")).resolves.toBe(m.jobId);
     expect(pp.authorizeOrder).not.toHaveBeenCalled();
+  });
+});
+
+describe("direct mode (milestone funded straight to the freelancer)", () => {
+  it("funds with the freelancer as payee", async () => {
+    pp.createOrder.mockResolvedValue({ orderId: "O9", approveUrl: "https://pp/approve" });
+    const m = await seedMilestone({ state: "draft", direct: true });
+    await startFunding(m.id);
+    expect(pp.createOrder.mock.calls[0][0].payeeEmail).toBe("free@example.com");
+  });
+  it("releases with a capture only, no payout", async () => {
+    const m = await seedMilestone({ state: "passed", authorizationId: "A1", direct: true });
+    await release(m.id);
+    expect(pp.captureAuthorization).toHaveBeenCalledWith("A1", m.id);
+    expect(pp.createPayout).not.toHaveBeenCalled();
+    expect(await stateOf(m.id)).toBe("paid_out");
+  });
+  it("keeps using payouts for milestones funded in payouts mode", async () => {
+    const m = await seedMilestone({ state: "passed", authorizationId: "A1", direct: false });
+    await release(m.id);
+    expect(pp.createPayout).toHaveBeenCalled();
   });
 });

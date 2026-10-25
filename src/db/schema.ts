@@ -27,6 +27,7 @@ export const milestones = pgTable("milestones", {
   amountMinor: integer().notNull(),
   proofType: text().notNull().default("website"),
   state: text().notNull().default("draft"),
+  direct: boolean().notNull().default(false), // funded with the freelancer as payee (no payout step)
   orderId: text(),
   authorizationId: text(),
   captureId: text(),
