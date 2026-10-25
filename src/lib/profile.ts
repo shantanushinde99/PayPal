@@ -12,7 +12,9 @@ const text = (f: FormData, k: string, max: number, label: string) => {
 
 // Untrusted form input → a clean profile, or a message the user can act on.
 export function parseProfile(f: FormData): ProfileInput {
-  const roles = [...new Set(f.getAll("roles").map(String))];
+  const CHOICE: Record<string, string[]> = { client: ["client"], freelancer: ["freelancer"], both: ["client", "freelancer"] };
+  const choice = f.get("roleChoice");
+  const roles = choice !== null ? (CHOICE[String(choice)] ?? [String(choice)]) : [...new Set(f.getAll("roles").map(String))];
   if (!roles.length || roles.some((r) => r !== "client" && r !== "freelancer")) throw new Error("Choose whether you're a client, a freelancer, or both.");
   const displayName = text(f, "displayName", 60, "Your name");
   if (!displayName || displayName.length < 2) throw new Error("Please enter your name (at least 2 characters).");

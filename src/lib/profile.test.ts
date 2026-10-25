@@ -29,3 +29,11 @@ describe("parseProfile", () => {
     expect(() => parseProfile(fd({ roles: "freelancer", displayName: "Sam" }))).toThrow(/headline/);
   });
 });
+
+describe("parseProfile role choice", () => {
+  it("reads the selected role card directly", () => {
+    expect(parseProfile(fd({ roleChoice: "freelancer", displayName: "Sam", headline: "Dev" })).roles).toEqual(["freelancer"]);
+    expect(parseProfile(fd({ roleChoice: "both", displayName: "Sam", headline: "Dev" })).roles).toEqual(["client", "freelancer"]);
+    expect(() => parseProfile(fd({ roleChoice: "admin", displayName: "Sam" }))).toThrow(/client, a freelancer, or both/);
+  });
+});

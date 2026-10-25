@@ -7,9 +7,9 @@ import { btn, field } from "@/components/ui";
 import type { User } from "@/db/schema";
 
 const CHOICES = [
-  { value: ["client"], title: "I'm hiring", text: "Post jobs, hold payments with PayPal, pay when work is verified.", Icon: Briefcase },
-  { value: ["freelancer"], title: "I'm a freelancer", text: "Get hired, see the money is funded, get paid the moment it's verified.", Icon: Code2 },
-  { value: ["client", "freelancer"], title: "Both", text: "Hire for some jobs and take on others. Switch views any time.", Icon: Users },
+  { key: "client", value: ["client"], title: "I'm hiring", text: "Post jobs, hold payments with PayPal, pay when work is verified.", Icon: Briefcase },
+  { key: "freelancer", value: ["freelancer"], title: "I'm a freelancer", text: "Get hired, see the money is funded, get paid the moment it's verified.", Icon: Code2 },
+  { key: "both", value: ["client", "freelancer"], title: "Both", text: "Hire for some jobs and take on others. Switch views any time.", Icon: Users },
 ] as const;
 
 export function ProfileForm({ user, submitLabel }: { user: User; submitLabel: string }) {
@@ -27,7 +27,7 @@ export function ProfileForm({ user, submitLabel }: { user: User; submitLabel: st
             const on = c.value.join("+") === key;
             return (
               <label key={c.title} className={`relative cursor-pointer rounded-2xl border-2 p-5 transition-colors ${on ? "border-brand bg-brand-soft/40" : "border-line bg-white hover:border-brand/40"}`}>
-                <input type="radio" name="roleChoice" className="sr-only" checked={on} onChange={() => setRoles([...c.value])} />
+                <input type="radio" name="roleChoice" value={c.key} className="sr-only" checked={on} onChange={() => setRoles([...c.value])} />
                 {on && <span className="absolute right-3 top-3 grid size-6 place-items-center rounded-full bg-brand text-white"><Check aria-hidden className="size-4" /></span>}
                 <c.Icon aria-hidden className="mb-3 size-7 text-brand" />
                 <p className="font-semibold">{c.title}</p>
@@ -36,7 +36,6 @@ export function ProfileForm({ user, submitLabel }: { user: User; submitLabel: st
             );
           })}
         </div>
-        {roles.map((r) => <input key={r} type="hidden" name="roles" value={r} />)}
       </fieldset>
 
       <div className="grid gap-5 sm:grid-cols-2">
