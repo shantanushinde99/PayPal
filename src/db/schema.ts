@@ -103,3 +103,4 @@ export const events = pgTable("events", {
 
 export type Job = typeof jobs.$inferSelect;
 export type Milestone = typeof milestones.$inferSelect;
+export type User = typeof users.$inferSelect;

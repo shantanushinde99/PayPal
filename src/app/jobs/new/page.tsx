@@ -11,7 +11,7 @@ export default async function NewJob() {
   const user = await requireUser();
   return (
     <>
-      <Header email={user.email} />
+      <Header user={user} />
       <main className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-4 py-8">
         <Link href="/" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink"><ArrowLeft aria-hidden className="size-4" /> Dashboard</Link>
         <div>

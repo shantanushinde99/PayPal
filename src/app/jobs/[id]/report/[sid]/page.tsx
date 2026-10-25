@@ -36,7 +36,7 @@ export default async function ProofReport({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <div className="print:hidden"><Header email={user.email} /></div>
+      <div className="print:hidden"><Header user={user} /></div>
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-8 print:py-0">
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <Link href={`/jobs/${job.id}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink"><ArrowLeft aria-hidden className="size-4" /> Back to job</Link>

@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { eq, inArray, or } from "drizzle-orm";
 import { Briefcase, ChevronRight, Lock, Plus, Wallet } from "lucide-react";
-import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { currentUser } from "@/lib/session";
 import { db } from "@/db";
 import { jobs, milestones, type Job, type Milestone } from "@/db/schema";
 import { Header } from "@/components/header";
@@ -60,9 +61,10 @@ function JobList({ title, items, ms, empty, who }: {
 }
 
 export default async function Home() {
-  const session = await auth();
-  if (!session?.user?.id) return <Landing />;
-  const { id, email } = session.user;
+  const user = await currentUser();
+  if (!user) return <Landing />;
+  if (!user.onboardedAt) redirect("/onboarding");
+  const { id, email } = user;
 
   const all = await db.select().from(jobs).where(or(eq(jobs.clientId, id), eq(jobs.freelancerEmail, email)));
   const ms = all.length ? await db.select().from(milestones).where(inArray(milestones.jobId, all.map((j) => j.id))) : [];
@@ -80,7 +82,7 @@ export default async function Home() {
 
   return (
     <>
-      <Header email={email} />
+      <Header user={user} />
       <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>

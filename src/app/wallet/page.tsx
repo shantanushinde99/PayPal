@@ -44,7 +44,7 @@ export default async function Wallet({ searchParams }: { searchParams: Promise<{
 
   return (
     <>
-      <Header email={user.email} />
+      <Header user={user} />
       <main className="mx-auto w-full max-w-4xl flex-1 space-y-8 px-4 py-8">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">Wallet</h1>

@@ -230,7 +230,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   return (
     <>
-      <Header email={user.email} />
+      <Header user={user} />
       <AutoRefresh active={milestones.some((m) => m.state === "verifying" || m.state === "passed")} />
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-8">
         <Link href="/" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink"><ArrowLeft aria-hidden className="size-4" /> Dashboard</Link>
