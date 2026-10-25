@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
-import { saveMilestone, fundMilestone, cancelMilestone } from "../actions";
+import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryRelease } from "../actions";
+import { AutoRefresh } from "./auto-refresh";
 import { loadJobForUser } from "../load";
 
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
@@ -10,6 +11,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
 
   return (
     <main className="mx-auto max-w-3xl p-8 space-y-6">
+      <AutoRefresh active={milestones.some((m) => m.state === "verifying" || m.state === "passed")} />
       <Link href="/" className="text-sm underline">← Dashboard</Link>
       <h1 className="text-2xl font-bold">{job.title}</h1>
       <p className="text-gray-600 whitespace-pre-wrap">{job.description}</p>
@@ -43,6 +45,43 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             <form action={cancelMilestone.bind(null, m.id)}>
               <button className="text-sm text-red-600 underline">Cancel milestone{m.authorizationId ? " & release hold" : ""}</button>
             </form>
+          )}
+          {role === "freelancer" && ["funded", "failed"].includes(m.state) && (
+            <form action={submitProof.bind(null, m.id)} className="flex gap-2">
+              <input name="url" type="url" required placeholder="https://your-site.com" defaultValue={m.submission?.url}
+                className="flex-1 rounded border p-2" />
+              <button className="rounded bg-black px-4 py-2 text-white">Submit for AI check</button>
+            </form>
+          )}
+          {role === "client" && m.state === "passed" && (
+            <form action={retryRelease.bind(null, m.id)}><button className="rounded border px-3 py-1">Retry payment</button></form>
+          )}
+          {m.failReason && <p className="text-amber-700">⚠️ {m.failReason}</p>}
+
+          {m.verdict.length > 0 && (
+            <ul className="space-y-1">
+              {m.checklist.map((c) => {
+                const v = m.verdict.find((x) => x.checklistItemId === c.id);
+                const icon = v?.status === "pass" ? "✅" : v?.status === "fail" ? "❌" : "❔";
+                return <li key={c.id}>{icon} <b>{c.requirement}</b> — <span className="text-gray-600">{v?.reason}</span></li>;
+              })}
+            </ul>
+          )}
+
+          {m.events.length > 0 && (
+            <details open={m.state === "verifying"} className="text-sm">
+              <summary className="cursor-pointer text-gray-500">Activity ({m.events.length})</summary>
+              <ol className="mt-2 space-y-2">
+                {m.events.map((e) => (
+                  <li key={e.id}>
+                    <span className="text-gray-400">{e.createdAt.toLocaleTimeString()}</span>{" "}
+                    <span className={e.kind === "error" ? "text-red-600" : e.kind === "payment" ? "text-green-700 font-medium" : ""}>{e.message}</span>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {e.image && <img src={`data:image/jpeg;base64,${e.image}`} alt="What the AI saw" className="mt-1 max-h-48 rounded border" />}
+                  </li>
+                ))}
+              </ol>
+            </details>
           )}
         </section>
       ))}

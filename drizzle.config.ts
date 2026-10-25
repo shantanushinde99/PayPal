@@ -5,7 +5,6 @@ loadEnvConfig(process.cwd());
 
 export default defineConfig({
   dialect: "postgresql",
-  driver: "pglite",
   schema: "./src/db/schema.ts",
   casing: "snake_case",
   dbCredentials: { url: process.env.DATABASE_URL! },

@@ -1,13 +1,17 @@
 "use server";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, milestones, checklistItems } from "@/db/schema";
+import { jobs, milestones, checklistItems, submissions } from "@/db/schema";
+import { transition } from "@/db/transition";
 import { requireUser } from "@/lib/session";
 import { planJob } from "@/lib/plan-job";
 import { toMinor } from "@/lib/money";
-import { startFunding, cancel } from "@/lib/payments";
+import { startFunding, cancel, release } from "@/lib/payments";
+import { runVerification } from "@/lib/verify/run";
+import type { MilestoneState } from "@/lib/milestone-state";
 
 export async function createJob(formData: FormData) {
   const user = await requireUser();
@@ -66,5 +70,33 @@ export async function fundMilestone(milestoneId: string) {
 export async function cancelMilestone(milestoneId: string) {
   const { j } = await requireClientOf(milestoneId);
   await cancel(milestoneId);
+  revalidatePath(`/jobs/${j.id}`);
+}
+
+export async function submitProof(milestoneId: string, formData: FormData) {
+  const user = await requireUser();
+  const [row] = await db.select({ m: milestones, j: jobs }).from(milestones)
+    .innerJoin(jobs, eq(jobs.id, milestones.jobId)).where(eq(milestones.id, milestoneId));
+  if (!row || row.j.freelancerEmail !== user.email) throw new Error("Not allowed");
+
+  const url = new URL(String(formData.get("url"))); // throws on junk
+  if (!["http:", "https:"].includes(url.protocol)) throw new Error("URL must be http(s)");
+
+  if (row.m.position > 0) {
+    const [prev] = await db.select().from(milestones)
+      .where(and(eq(milestones.jobId, row.j.id), eq(milestones.position, row.m.position - 1)));
+    if (prev && !["paid_out", "cancelled"].includes(prev.state)) throw new Error("Finish the previous milestone first");
+  }
+
+  await transition(milestoneId, row.m.state as MilestoneState, "verifying", { failReason: null });
+  const [sub] = await db.insert(submissions).values({ milestoneId, url: url.toString() }).returning();
+  after(() => runVerification(milestoneId, sub.id));
+  revalidatePath(`/jobs/${row.j.id}`);
+}
+
+// Client can retry the PayPal step if capture/payout failed after a pass.
+export async function retryRelease(milestoneId: string) {
+  const { j } = await requireClientOf(milestoneId);
+  await release(milestoneId);
   revalidatePath(`/jobs/${j.id}`);
 }
