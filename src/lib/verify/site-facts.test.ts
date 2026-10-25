@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { classifyLink, extractContacts, isPageUrl, normalizeUrl, summarizeReport, type SiteReport } from "./site-facts";
+import { classifyLink, extractContacts, isPageUrl, normalizeUrl, sameSite, summarizeReport, type SiteReport } from "./site-facts";
 
 const base = "https://bakery.test/about";
 
@@ -71,5 +71,16 @@ describe("summarizeReport", () => {
     expect(s).toContain("https://b.test/team (404)");
     expect(s).toContain("hello@b.test");
     expect(s).toMatch(/UNTRUSTED/);
+  });
+});
+
+describe("sameSite", () => {
+  it("treats http/https and www/no-www of one domain as the same site", () => {
+    expect(sameSite("http://www.bakery.test/x", "https://bakery.test/")).toBe(true);
+    expect(classifyLink("http://bakery.test/author/", "https://bakery.test/")).toBe("internal");
+  });
+  it("keeps other domains and subdomain tricks out", () => {
+    expect(sameSite("https://bakery.test.evil.com/", "https://bakery.test/")).toBe(false);
+    expect(sameSite("https://shop.bakery.test/", "https://bakery.test/")).toBe(false);
   });
 });

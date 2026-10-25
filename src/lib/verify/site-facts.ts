@@ -21,6 +21,10 @@ export function normalizeUrl(href: string, base: string): string | null {
   }
 }
 
+// Same site = same domain; http↔https and www/no-www redirects are common and harmless.
+const bareHost = (u: string, base?: string) => new URL(u, base).hostname.replace(/^www\./, "");
+export const sameSite = (a: string, b: string) => { try { return bareHost(a, b) === bareHost(b); } catch { return false; } };
+
 export function classifyLink(href: string, base: string): LinkKind {
   const h = href.trim().toLowerCase();
   if (h.startsWith("mailto:")) return "mailto";
@@ -29,7 +33,7 @@ export function classifyLink(href: string, base: string): LinkKind {
     const u = new URL(href, base);
     if (u.hostname === "wa.me" || u.hostname.endsWith("whatsapp.com")) return "whatsapp";
     if (u.protocol !== "http:" && u.protocol !== "https:") return "other";
-    return u.origin === new URL(base).origin ? "internal" : "external";
+    return sameSite(u.toString(), base) ? "internal" : "external";
   } catch {
     return "other";
   }
