@@ -10,6 +10,7 @@ import { requireUser } from "@/lib/session";
 import { planJob } from "@/lib/plan-job";
 import { toMinor, CURRENCIES } from "@/lib/money";
 import { parsePhoto } from "@/lib/photo-input";
+import { withDesignItem } from "@/lib/design-reference";
 import { startFunding, cancel, release } from "@/lib/payments";
 import { runVerification } from "@/lib/verify/run";
 import type { MilestoneState } from "@/lib/milestone-state";
@@ -48,12 +49,17 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
   const amount = Number(formData.get("amount"));
   if (!requirements.length || !(amount > 0)) throw new Error("Need at least one requirement and an amount");
 
+  const proofType = formData.get("proofType") === "photo" ? "photo" : "website";
+  const reference = proofType === "website" ? String(formData.get("referenceImage") ?? "") : "";
+  if (reference) parsePhoto(reference); // throws on non-images / oversized
+  const finalRequirements = reference ? withDesignItem(requirements) : requirements;
+
   await db.transaction(async (tx) => {
-    const proofType = formData.get("proofType") === "photo" ? "photo" : "website";
-    await tx.update(milestones).set({ title: String(formData.get("title")), proofType, amountMinor: toMinor(amount, row.j.currency) })
-      .where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
+    await tx.update(milestones).set({
+      title: String(formData.get("title")), proofType, amountMinor: toMinor(amount, row.j.currency), referenceImage: reference || null,
+    }).where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
     await tx.delete(checklistItems).where(eq(checklistItems.milestoneId, milestoneId));
-    await tx.insert(checklistItems).values(requirements.map((requirement, position) => ({ milestoneId, position, requirement })));
+    await tx.insert(checklistItems).values(finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement })));
   });
   revalidatePath(`/jobs/${row.j.id}`);
 }

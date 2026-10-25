@@ -17,8 +17,8 @@ async function toJpegDataUrl(file: File): Promise<string> {
   return canvas.toDataURL("image/jpeg", 0.82);
 }
 
-function PhotoPicker({ name, label }: { name: string; label: string }) {
-  const [src, setSrc] = useState("");
+export function PhotoPicker({ name, label, initial = "" }: { name: string; label: string; initial?: string }) {
+  const [src, setSrc] = useState(initial);
   const [error, setError] = useState("");
   const id = `${name}-input`;
   return (

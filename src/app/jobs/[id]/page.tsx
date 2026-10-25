@@ -12,7 +12,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryRelease } from "../actions";
 import { loadJobForUser } from "../load";
 import { AutoRefresh } from "./auto-refresh";
-import { PhotoProofForm } from "./photo-proof-form";
+import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
 
 type Loaded = Awaited<ReturnType<typeof loadJobForUser>>;
 type M = Loaded["milestones"][number];
@@ -147,10 +147,24 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
               <textarea name="checklist" rows={Math.max(3, m.checklist.length + 1)} className={field} defaultValue={m.checklist.map((c) => c.requirement).join("\n")} />
             </label>
+            {m.proofType === "website" && (
+              <div className="max-w-xs">
+                <PhotoPicker name="referenceImage" label="Reference design (optional)" initial={m.referenceImage ?? ""} />
+                <p className="mt-1 text-xs text-ink-soft">A mockup or screenshot. The AI compares the live homepage with it.</p>
+              </div>
+            )}
             <SubmitButton className={btn.secondary} pending="Saving…">Save checklist</SubmitButton>
           </form>
         ) : (
           <Checklist m={m} />
+        )}
+
+        {m.state !== "draft" && m.referenceImage && (
+          <figure className="max-w-xs space-y-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={m.referenceImage} alt="Reference design" className="rounded-lg border border-line" />
+            <figcaption className="text-xs text-ink-soft">Reference design</figcaption>
+          </figure>
         )}
 
         <Proof m={m} />
