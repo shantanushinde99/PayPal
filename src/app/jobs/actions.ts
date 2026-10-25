@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { jobs, milestones, checklistItems, submissions } from "@/db/schema";
 import { transition } from "@/db/transition";
 import { requireUser } from "@/lib/session";
+import { jobRole } from "@/lib/job-access";
 import { planJob } from "@/lib/plan-job";
 import { toMinor, CURRENCIES } from "@/lib/money";
 import { parsePhoto } from "@/lib/photo-input";
@@ -90,7 +91,8 @@ export async function submitProof(milestoneId: string, formData: FormData) {
   const user = await requireUser();
   const [row] = await db.select({ m: milestones, j: jobs }).from(milestones)
     .innerJoin(jobs, eq(jobs.id, milestones.jobId)).where(eq(milestones.id, milestoneId));
-  if (!row || row.j.freelancerEmail !== user.email) throw new Error("Not allowed");
+  if (!row || jobRole(row.j, user) !== "freelancer") throw new Error("Not allowed");
+  if (row.j.status !== "accepted") throw new Error("Accept the job before submitting proof");
 
   let proof: { url?: string; beforePhoto?: string; afterPhoto?: string };
   if (row.m.proofType === "photo") {

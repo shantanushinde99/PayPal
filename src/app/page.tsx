@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { eq, inArray, or } from "drizzle-orm";
+import { inArray } from "drizzle-orm";
 import { Briefcase, ChevronRight, Lock, Plus, Wallet } from "lucide-react";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/session";
+import { jobRole, myJobsWhere } from "@/lib/job-access";
 import { db } from "@/db";
 import { jobs, milestones, type Job, type Milestone } from "@/db/schema";
 import { Header } from "@/components/header";
@@ -66,13 +67,13 @@ export default async function Home() {
   if (!user.onboardedAt) redirect("/onboarding");
   const { id, email } = user;
 
-  const all = await db.select().from(jobs).where(or(eq(jobs.clientId, id), eq(jobs.freelancerEmail, email)));
+  const all = await db.select().from(jobs).where(myJobsWhere(user));
   const ms = all.length ? await db.select().from(milestones).where(inArray(milestones.jobId, all.map((j) => j.id))) : [];
   const currencyOf = new Map(all.map((j) => [j.id, j.currency]));
   const withCur = (pred: (m: Milestone) => boolean) => ms.filter(pred).map((m) => ({ amountMinor: m.amountMinor, currency: currencyOf.get(m.jobId)! }));
   const recent = await loadPaymentsForUser({ id, email }, { limit: 8 });
   const posted = all.filter((j) => j.clientId === id);
-  const working = all.filter((j) => j.freelancerEmail === email);
+  const working = all.filter((j) => jobRole(j, user) === "freelancer");
 
   const stats = [
     { label: "On hold in PayPal", value: sumByCurrency(withCur((m) => HELD.has(m.state))), Icon: Lock },

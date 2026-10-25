@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
+import { jobRole } from "@/lib/job-access";
 import { jobs, milestones, checklistItems, submissions, verdictItems, events, users } from "@/db/schema";
 
 export async function loadJobForUser(jobId: string, user: { id: string; email: string }) {
   const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId));
   if (!job) notFound();
-  const role = job.clientId === user.id ? "client" : job.freelancerEmail === user.email ? "freelancer" : null;
+  const role = jobRole(job, user);
   if (!role) notFound();
 
   const ms = await db.select().from(milestones).where(eq(milestones.jobId, jobId)).orderBy(asc(milestones.position));
@@ -24,10 +25,14 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
   const subIds = latest.flatMap((s) => (s ? [s.id] : []));
   const verdicts = subIds.length ? await db.select().from(verdictItems).where(inArray(verdictItems.submissionId, subIds)) : [];
 
-  const [client] = await db.select({ email: users.email }).from(users).where(eq(users.id, job.clientId));
+  const person = (u?: { email: string; displayName: string | null; company: string | null; headline: string | null }) =>
+    ({ name: u?.displayName ?? u?.email ?? job.freelancerEmail, email: u?.email ?? job.freelancerEmail, detail: u?.company ?? u?.headline ?? null });
+  const cols = { email: users.email, displayName: users.displayName, company: users.company, headline: users.headline };
+  const [client] = await db.select(cols).from(users).where(eq(users.id, job.clientId));
+  const [free] = job.freelancerId ? await db.select(cols).from(users).where(eq(users.id, job.freelancerId)) : [];
 
   return {
-    job, role, clientEmail: client?.email ?? "",
+    job, role, clientEmail: client?.email ?? "", client: person(client), freelancer: person(free),
     milestones: ms.map((m, i) => ({
       ...m,
       checklist: items.filter((c) => c.milestoneId === m.id),
