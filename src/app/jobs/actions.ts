@@ -7,6 +7,7 @@ import { jobs, milestones, checklistItems } from "@/db/schema";
 import { requireUser } from "@/lib/session";
 import { planJob } from "@/lib/plan-job";
 import { toMinor } from "@/lib/money";
+import { startFunding, cancel } from "@/lib/payments";
 
 export async function createJob(formData: FormData) {
   const user = await requireUser();
@@ -47,4 +48,23 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
     await tx.insert(checklistItems).values(requirements.map((requirement, position) => ({ milestoneId, position, requirement })));
   });
   revalidatePath(`/jobs/${row.j.id}`);
+}
+
+async function requireClientOf(milestoneId: string) {
+  const user = await requireUser();
+  const [row] = await db.select({ m: milestones, j: jobs }).from(milestones)
+    .innerJoin(jobs, eq(jobs.id, milestones.jobId)).where(eq(milestones.id, milestoneId));
+  if (!row || row.j.clientId !== user.id) throw new Error("Not allowed");
+  return row;
+}
+
+export async function fundMilestone(milestoneId: string) {
+  await requireClientOf(milestoneId);
+  redirect(await startFunding(milestoneId));
+}
+
+export async function cancelMilestone(milestoneId: string) {
+  const { j } = await requireClientOf(milestoneId);
+  await cancel(milestoneId);
+  revalidatePath(`/jobs/${j.id}`);
 }

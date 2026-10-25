@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
-import { saveMilestone } from "../actions";
+import { saveMilestone, fundMilestone, cancelMilestone } from "../actions";
 import { loadJobForUser } from "../load";
 
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
@@ -32,6 +32,17 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             </form>
           ) : (
             <ul className="list-disc pl-5">{m.checklist.map((c) => <li key={c.id}>{c.requirement}</li>)}</ul>
+          )}
+
+          {role === "client" && ["draft", "funding"].includes(m.state) && (
+            <form action={fundMilestone.bind(null, m.id)}>
+              <button className="rounded bg-[#0070ba] px-4 py-2 text-white">Fund {formatMoney(m.amountMinor, job.currency)} with PayPal</button>
+            </form>
+          )}
+          {role === "client" && ["draft", "funding", "funded", "failed"].includes(m.state) && (
+            <form action={cancelMilestone.bind(null, m.id)}>
+              <button className="text-sm text-red-600 underline">Cancel milestone{m.authorizationId ? " & release hold" : ""}</button>
+            </form>
           )}
         </section>
       ))}
