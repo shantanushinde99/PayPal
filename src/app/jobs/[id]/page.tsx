@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Loader2, Lock,
+  AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
   ReceiptText, Send, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -147,6 +147,13 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
               <textarea name="checklist" rows={Math.max(3, m.checklist.length + 1)} className={field} defaultValue={m.checklist.map((c) => c.requirement).join("\n")} />
             </label>
+            {m.checklist.some((c) => c.lintNote) && (
+              <ul className="space-y-1.5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                {m.checklist.filter((c) => c.lintNote).map((c) => (
+                  <li key={c.id} className="flex gap-2"><Lightbulb aria-hidden className="mt-0.5 size-4 shrink-0" /><span><b>{c.requirement}</b>: {c.lintNote}</span></li>
+                ))}
+              </ul>
+            )}
             {m.proofType === "website" && (
               <div className="max-w-xs">
                 <PhotoPicker name="referenceImage" label="Reference design (optional)" initial={m.referenceImage ?? ""} />
