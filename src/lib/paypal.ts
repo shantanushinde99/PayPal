@@ -1,0 +1,88 @@
+import { env } from "@/lib/env";
+import { toPayPalValue } from "@/lib/money";
+
+export const requestId = (milestoneId: string, action: string) => `pod-${milestoneId}-${action}`;
+
+let token: { value: string; expiresAt: number } | undefined;
+
+async function accessToken() {
+  if (token && token.expiresAt > Date.now() + 60_000) return token.value;
+  const res = await fetch(`${env.PAYPAL_API_BASE}/v1/oauth2/token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${env.PAYPAL_CLIENT_ID}:${env.PAYPAL_CLIENT_SECRET}`).toString("base64")}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: "grant_type=client_credentials",
+  });
+  if (!res.ok) throw new Error(`PayPal auth failed: ${res.status} ${await res.text()}`);
+  const data = await res.json();
+  token = { value: data.access_token, expiresAt: Date.now() + data.expires_in * 1000 };
+  return token.value;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function pp(path: string, body?: unknown, reqId?: string): Promise<any> {
+  const res = await fetch(`${env.PAYPAL_API_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${await accessToken()}`,
+      "Content-Type": "application/json",
+      ...(reqId && { "PayPal-Request-Id": reqId }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`PayPal ${path} failed: ${res.status} ${text}`);
+  return text ? JSON.parse(text) : null;
+}
+
+export async function createOrder(o: {
+  milestoneId: string; title: string; amountMinor: number; currency: string; returnUrl: string; cancelUrl: string;
+}) {
+  const order = await pp("/v2/checkout/orders", {
+    intent: "AUTHORIZE",
+    purchase_units: [{
+      reference_id: o.milestoneId,
+      description: o.title.slice(0, 127),
+      amount: { currency_code: o.currency, value: toPayPalValue(o.amountMinor, o.currency) },
+    }],
+    payment_source: { paypal: { experience_context: {
+      brand_name: "Proof-of-Done",
+      user_action: "PAY_NOW",
+      shipping_preference: "NO_SHIPPING",
+      return_url: o.returnUrl,
+      cancel_url: o.cancelUrl,
+    } } },
+  });
+  const approveUrl = order.links.find((l: { rel: string }) => l.rel === "payer-action").href;
+  return { orderId: order.id as string, approveUrl: approveUrl as string };
+}
+
+export async function authorizeOrder(orderId: string, milestoneId: string): Promise<string> {
+  const order = await pp(`/v2/checkout/orders/${orderId}/authorize`, undefined, requestId(milestoneId, `authorize-${orderId}`));
+  return order.purchase_units[0].payments.authorizations[0].id;
+}
+
+export async function captureAuthorization(authorizationId: string, milestoneId: string): Promise<string> {
+  const cap = await pp(`/v2/payments/authorizations/${authorizationId}/capture`, { final_capture: true }, requestId(milestoneId, "capture"));
+  return cap.id;
+}
+
+export async function voidAuthorization(authorizationId: string) {
+  await pp(`/v2/payments/authorizations/${authorizationId}/void`);
+}
+
+export async function createPayout(p: { milestoneId: string; email: string; amountMinor: number; currency: string; note: string }) {
+  const res = await pp("/v1/payments/payouts", {
+    sender_batch_header: { sender_batch_id: requestId(p.milestoneId, "payout"), email_subject: "You've been paid via Proof-of-Done" },
+    items: [{
+      recipient_type: "EMAIL",
+      receiver: p.email,
+      amount: { value: toPayPalValue(p.amountMinor, p.currency), currency: p.currency },
+      note: p.note,
+      sender_item_id: p.milestoneId,
+    }],
+  });
+  return res.batch_header.payout_batch_id as string;
+}
