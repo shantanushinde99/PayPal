@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { LayoutDashboard, LogOut, ShieldCheck, UserRound, Users, Wallet } from "lucide-react";
+import { LayoutDashboard, LogOut, UserRound, Users, Wallet } from "lucide-react";
+import { LogoMark } from "@/components/logo-mark";
 import { signOut } from "@/auth";
 import type { User } from "@/db/schema";
 import { currentView } from "@/lib/view";
@@ -9,7 +10,7 @@ import { DemoBanner } from "@/components/demo-banner";
 export function Logo({ light = false }: { light?: boolean }) {
   return (
     <Link href="/" className={`inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight ${light ? "text-white" : "text-ink"}`}>
-      <span className="grid size-8 place-items-center rounded-lg bg-brand text-white"><ShieldCheck aria-hidden className="size-5" /></span>
+      <LogoMark />
       Verifund
     </Link>
   );

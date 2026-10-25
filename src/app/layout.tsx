@@ -6,6 +6,7 @@ const plex = IBM_Plex_Sans({ variable: "--font-plex", subsets: ["latin"], weight
 const grotesk = Space_Grotesk({ variable: "--font-grotesk", subsets: ["latin"], weight: ["500", "600", "700"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.APP_URL ?? "http://lvh.me:3000"), // absolute URLs for the social image
   title: "Verifund · Pay for proof, not promises",
   description: "AI escrow on PayPal: milestone payments are held until an AI agent verifies the delivered work against the agreed checklist, then released automatically with an evidence report.",
 };
