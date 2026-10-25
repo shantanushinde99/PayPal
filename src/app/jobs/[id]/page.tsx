@@ -11,6 +11,8 @@ import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryRelease } from "../actions";
 import { loadJobForUser } from "../load";
+import { loadPaymentsForUser } from "@/lib/payment-history";
+import { PaymentsList } from "@/components/payments-list";
 import { AutoRefresh } from "./auto-refresh";
 import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
 
@@ -219,6 +221,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const data = await loadJobForUser((await params).id, user);
+  const payments = await loadPaymentsForUser(user, { jobId: data.job.id });
   const { job, role, milestones, clientEmail } = data;
   const total = milestones.reduce((s, m) => s + m.amountMinor, 0);
   const paid = milestones.filter((m) => m.state === "paid_out").reduce((s, m) => s + m.amountMinor, 0);
@@ -244,6 +247,11 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             <Card key={label as string} className="p-4"><p className="text-sm text-ink-soft">{label}</p><p className="text-lg font-bold tabular-nums">{formatMoney(v as number, job.currency)}</p></Card>
           ))}
         </div>
+        <section aria-labelledby="pay" className="space-y-3">
+          <h2 id="pay" className="text-lg font-semibold">Payments</h2>
+          <PaymentsList items={payments} empty={role === "client" ? "No payments yet. Fund a milestone to hold the money with PayPal." : "No payments yet. You'll see the money here as soon as the client funds a milestone."} />
+        </section>
+
         <section aria-labelledby="ms" className="space-y-4">
           <h2 id="ms" className="text-lg font-semibold">Milestones</h2>
           <ol className="relative space-y-6 before:absolute before:bottom-6 before:left-[15px] before:top-6 before:w-0.5 before:bg-line">

@@ -65,6 +65,17 @@ export const verdictItems = pgTable("verdict_items", {
   pageUrl: text(),
 });
 
+// Every money movement, in structured form (the activity log has the same events as text).
+export const payments = pgTable("payments", {
+  id: uuid().primaryKey().defaultRandom(),
+  milestoneId: uuid().notNull().references(() => milestones.id),
+  kind: text().notNull(), // hold | paid (direct capture) | captured (to platform) | payout | void
+  amountMinor: integer().notNull(),
+  currency: text().notNull(),
+  paypalId: text().notNull(),
+  createdAt: timestamp().notNull().defaultNow(),
+});
+
 // Audit log + live agent steps. image = base64 JPEG (demo scale).
 export const events = pgTable("events", {
   id: uuid().primaryKey().defaultRandom(),

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { milestones } from "@/db/schema";
+import { milestones, payments } from "@/db/schema";
 import { seedMilestone } from "@/test/fixtures";
 
 const pp = vi.hoisted(() => ({
@@ -73,5 +73,36 @@ describe("direct mode (milestone funded straight to the freelancer)", () => {
     const m = await seedMilestone({ state: "passed", authorizationId: "A1", direct: false });
     await release(m.id);
     expect(pp.createPayout).toHaveBeenCalled();
+  });
+});
+
+describe("payment records", () => {
+  const kinds = async (id: string) => (await db.select().from(payments).where(eq(payments.milestoneId, id))).map((p) => [p.kind, p.amountMinor, p.paypalId]);
+  it("records the hold when funding completes", async () => {
+    const m = await seedMilestone({ state: "funding", orderId: "O7" });
+    await completeFunding(m.id, "O7");
+    expect(await kinds(m.id)).toEqual([["hold", 1000, "AUTH"]]);
+  });
+  it("records a direct payment on release", async () => {
+    const m = await seedMilestone({ state: "passed", authorizationId: "A1", direct: true });
+    await release(m.id);
+    expect(await kinds(m.id)).toEqual([["paid", 1000, "CAP"]]);
+  });
+  it("records capture and payout in payouts mode", async () => {
+    const m = await seedMilestone({ state: "passed", authorizationId: "A1", direct: false });
+    await release(m.id);
+    expect(await kinds(m.id)).toEqual([["captured", 1000, "CAP"], ["payout", 950, "BATCH"]]);
+  });
+  it("records the released hold on cancel", async () => {
+    const m = await seedMilestone({ state: "funded", authorizationId: "A9" });
+    await cancel(m.id);
+    expect(await kinds(m.id)).toEqual([["void", 1000, "A9"]]);
+  });
+  it("records the capture once even when the payout is retried", async () => {
+    const m = await seedMilestone({ state: "passed", authorizationId: "A1", direct: false });
+    pp.createPayout.mockRejectedValueOnce(new Error("PayPal down"));
+    await expect(release(m.id)).rejects.toThrow();
+    await release(m.id);
+    expect((await kinds(m.id)).map((k) => k[0])).toEqual(["captured", "payout"]);
   });
 });

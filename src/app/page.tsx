@@ -8,6 +8,8 @@ import { Header } from "@/components/header";
 import { Landing } from "@/components/landing/landing";
 import { Card, StatusBadge, btn } from "@/components/ui";
 import { formatMoney } from "@/lib/money";
+import { loadPaymentsForUser } from "@/lib/payment-history";
+import { PaymentsList } from "@/components/payments-list";
 
 const HELD = new Set(["funded", "verifying", "failed", "passed"]);
 
@@ -66,6 +68,7 @@ export default async function Home() {
   const ms = all.length ? await db.select().from(milestones).where(inArray(milestones.jobId, all.map((j) => j.id))) : [];
   const currencyOf = new Map(all.map((j) => [j.id, j.currency]));
   const withCur = (pred: (m: Milestone) => boolean) => ms.filter(pred).map((m) => ({ amountMinor: m.amountMinor, currency: currencyOf.get(m.jobId)! }));
+  const recent = await loadPaymentsForUser({ id, email }, { limit: 8 });
   const posted = all.filter((j) => j.clientId === id);
   const working = all.filter((j) => j.freelancerEmail === email);
 
@@ -94,6 +97,10 @@ export default async function Home() {
             </Card>
           ))}
         </div>
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Recent payments</h2>
+          <PaymentsList items={recent} showJob empty="No payments yet. Every hold, payment and release will show up here with its PayPal ID." />
+        </section>
         <JobList title="Jobs I posted" items={posted} ms={ms} who={(j) => `Freelancer ${j.freelancerEmail}`} empty="No jobs yet. Post one and let AI draft the milestones." />
         <JobList title="Jobs I'm working on" items={working} ms={ms} who={() => "You're the freelancer"} empty="When a client hires you with your PayPal email, the job shows up here." />
       </main>

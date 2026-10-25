@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, milestones, events } from "@/db/schema";
+import { jobs, milestones, events, payments } from "@/db/schema";
 import { transition } from "@/db/transition";
 import { env } from "@/lib/env";
 import { payoutMinor, formatMoney } from "@/lib/money";
@@ -16,6 +16,9 @@ async function load(milestoneId: string) {
 
 const logPayment = (milestoneId: string, message: string) =>
   db.insert(events).values({ milestoneId, kind: "payment", message });
+
+const record = (milestoneId: string, kind: string, amountMinor: number, currency: string, paypalId: string) =>
+  db.insert(payments).values({ milestoneId, kind, amountMinor, currency, paypalId });
 
 export async function startFunding(milestoneId: string) {
   const { m, j, state } = await load(milestoneId);
@@ -42,16 +45,18 @@ export async function completeFunding(milestoneId: string, orderId: string) {
     await voidAuthorization(authorizationId); // cancelled meanwhile: don't leave money held
     throw e;
   }
+  await record(milestoneId, "hold", m.amountMinor, j.currency, authorizationId);
   await logPayment(milestoneId, `${formatMoney(m.amountMinor, j.currency)} on hold (authorization ${authorizationId})`);
   return j.id;
 }
 
 export async function cancel(milestoneId: string) {
-  const { m, state } = await load(milestoneId);
+  const { m, j, state } = await load(milestoneId);
   if (!canTransition(state, "cancelled")) throw new Error(`Can't cancel a milestone that is ${state}`);
   await transition(milestoneId, state, "cancelled"); // first, so a racing resubmit can't run on a voided hold
   if (m.authorizationId) {
     await voidAuthorization(m.authorizationId);
+    await record(milestoneId, "void", m.amountMinor, j.currency, m.authorizationId);
     await logPayment(milestoneId, "Hold released to client (authorization voided)");
   }
 }
@@ -65,15 +70,20 @@ export async function release(milestoneId: string) {
   await db.update(milestones).set({ captureId }).where(eq(milestones.id, milestoneId));
   if (m.direct) {
     await transition(milestoneId, "passed", "paid_out");
+    await record(milestoneId, "paid", m.amountMinor, j.currency, captureId);
     await logPayment(milestoneId, `Paid ${formatMoney(m.amountMinor, j.currency)} directly to ${j.freelancerEmail} (capture ${captureId})`);
     return;
   }
-  await logPayment(milestoneId, `Captured ${formatMoney(m.amountMinor, j.currency)} (capture ${captureId})`);
+  if (!m.captureId) { // first attempt only: a retried payout must not list the capture twice
+    await record(milestoneId, "captured", m.amountMinor, j.currency, captureId);
+    await logPayment(milestoneId, `Captured ${formatMoney(m.amountMinor, j.currency)} (capture ${captureId})`);
+  }
 
   const amount = payoutMinor(m.amountMinor);
   const payoutBatchId = await createPayout({
     milestoneId, email: j.freelancerEmail, amountMinor: amount, currency: j.currency, note: `${j.title} — ${m.title}`,
   });
   await transition(milestoneId, "passed", "paid_out", { payoutBatchId });
+  await record(milestoneId, "payout", amount, j.currency, payoutBatchId);
   await logPayment(milestoneId, `Paid ${formatMoney(amount, j.currency)} to ${j.freelancerEmail} (payout ${payoutBatchId})`);
 }

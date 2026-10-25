@@ -87,3 +87,25 @@ export async function createPayout(p: { milestoneId: string; email: string; amou
   }, requestId(p.milestoneId, "payout"));
   return res.batch_header.payout_batch_id as string;
 }
+
+// Live status straight from PayPal, so the UI can show "Confirmed by PayPal".
+// ponytail: in-memory 5-minute cache; the job page polls every 2s while a check runs.
+const statusCache = new Map<string, { status: string; at: number }>();
+const STATUS_TTL = 5 * 60_000;
+
+export async function captureStatus(captureId: string): Promise<string | null> {
+  const hit = statusCache.get(captureId);
+  if (hit && Date.now() - hit.at < STATUS_TTL) return hit.status;
+  try {
+    const res = await fetch(`${env.PAYPAL_API_BASE}/v2/payments/captures/${encodeURIComponent(captureId)}`, {
+      headers: { Authorization: `Bearer ${await accessToken()}` },
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) return null;
+    const status = String((await res.json()).status ?? "");
+    if (status) statusCache.set(captureId, { status, at: Date.now() });
+    return status || null;
+  } catch {
+    return null; // a confirmation badge is optional; never break the page
+  }
+}
