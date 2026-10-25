@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, Globe, Loader2, Lock,
+  AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Loader2, Lock,
   ReceiptText, Send, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -80,6 +80,7 @@ function Proof({ m }: { m: M }) {
           ))}
         </div>
       )}
+      <Link href={`/jobs/${m.jobId}/report/${s.id}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><FileText aria-hidden className="size-4" /> View proof report</Link>
     </div>
   );
 }
