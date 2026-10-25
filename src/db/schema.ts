@@ -6,13 +6,28 @@ export const users = pgTable("users", {
   name: text(),
   homeCurrency: text().notNull().default("USD"),
   isAdmin: boolean().notNull().default(false),
+  roles: text().array().notNull().default([]), // client | freelancer
+  displayName: text(),
+  company: text(),
+  headline: text(),
+  skills: text().array().notNull().default([]),
+  bio: text(),
+  portfolioUrl: text(),
+  onboardedAt: timestamp({ withTimezone: true }),
+  isDemo: boolean().notNull().default(false),
+  demoGroup: uuid(),
+  payoutEmail: text(), // where payments go if not the login email (demo users → sandbox account)
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
 export const jobs = pgTable("jobs", {
   id: uuid().primaryKey().defaultRandom(),
   clientId: uuid().notNull().references(() => users.id),
-  freelancerEmail: text().notNull(),
+  freelancerEmail: text().notNull(), // payout address; for unclaimed invites also who may accept
+  freelancerId: uuid().references(() => users.id), // set when hired from the directory or on accept
+  status: text().notNull().default("invited"), // invited | accepted | declined
+  declineNote: text(),
+  acceptedAt: timestamp({ withTimezone: true }),
   title: text().notNull(),
   description: text().notNull(),
   currency: text().notNull(),
