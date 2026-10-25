@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Sparkles, Users } from "lucide-react";
+import { listFreelancers } from "@/lib/directory";
+import { FreelancerSummary } from "@/components/freelancer-card";
 import { requireUser } from "@/lib/session";
 import { CURRENCIES } from "@/lib/money";
 import { Header } from "@/components/header";
@@ -7,8 +9,21 @@ import { Card, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { createJob } from "../actions";
 
-export default async function NewJob() {
+export default async function NewJob({ searchParams }: { searchParams: Promise<{ freelancer?: string }> }) {
   const user = await requireUser();
+  const wanted = (await searchParams).freelancer;
+  // Looked up through the directory, so only hireable freelancers can be pre-selected.
+  const chosen = wanted ? (await listFreelancers(user)).find((f) => f.id === wanted) : undefined;
+  if (!user.roles.includes("client")) {
+    return (
+      <>
+        <Header user={user} />
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-8">
+          <Card className="space-y-3 p-6"><h1 className="text-xl font-semibold">Posting jobs is for clients</h1><p className="text-ink-soft">Add the client role in your profile to hire freelancers.</p><Link href="/profile" className={btn.primary}>Open profile</Link></Card>
+        </main>
+      </>
+    );
+  }
   return (
     <>
       <Header user={user} />
@@ -26,10 +41,27 @@ export default async function NewJob() {
                 placeholder="Build a landing page for my bakery with a menu, opening hours and a contact form." />
               <p className="text-sm text-ink-soft">Websites are checked live by an AI browser; physical jobs (painting, repairs) with before/after photos.</p>
             </div>
-            <div className="space-y-1.5">
-              <label htmlFor="freelancerEmail" className="text-sm font-semibold">Freelancer&apos;s PayPal email</label>
-              <input id="freelancerEmail" name="freelancerEmail" type="email" required autoComplete="off" className={field} placeholder="freelancer@example.com" />
-            </div>
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-semibold">Freelancer</legend>
+              {chosen ? (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand/30 bg-brand-soft/30 p-4">
+                  <FreelancerSummary f={chosen} />
+                  <input type="hidden" name="freelancerId" value={chosen.id} />
+                  <Link href="/freelancers" className="text-sm font-semibold text-brand hover:underline">Change</Link>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <Link href="/freelancers" className={`${btn.secondary} w-full`}><Users aria-hidden className="size-4" /> Choose from the freelancer directory</Link>
+                  {!user.isDemo && (
+                    <div className="space-y-1.5">
+                      <label htmlFor="freelancerEmail" className="text-sm text-ink-soft">…or invite someone who isn&apos;t on Verifund yet by their PayPal email</label>
+                      <input id="freelancerEmail" name="freelancerEmail" type="email" required autoComplete="off" className={field} placeholder="freelancer@example.com" />
+                    </div>
+                  )}
+                </div>
+              )}
+              <p className="text-sm text-ink-soft">They&apos;ll get an invitation and must accept the milestones before you can fund.</p>
+            </fieldset>
             <div className="grid grid-cols-[1fr_auto] gap-3">
               <div className="space-y-1.5">
                 <label htmlFor="budget" className="text-sm font-semibold">Total budget</label>
@@ -40,7 +72,7 @@ export default async function NewJob() {
                 <select id="currency" name="currency" className={field}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select>
               </div>
             </div>
-            <SubmitButton className={`${btn.primary} w-full`} pending="AI is drafting milestones…">
+            <SubmitButton className={`${btn.primary} w-full ${!chosen && user.isDemo ? "pointer-events-none opacity-50" : ""}`} pending="AI is drafting milestones…">
               <Sparkles aria-hidden className="size-4" /> Draft milestones with AI
             </SubmitButton>
           </form>
