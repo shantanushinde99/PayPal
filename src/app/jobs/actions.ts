@@ -8,6 +8,7 @@ import { jobs, milestones, checklistItems, submissions } from "@/db/schema";
 import { transition } from "@/db/transition";
 import { requireUser } from "@/lib/session";
 import { jobRole } from "@/lib/job-access";
+import { acceptJob, declineJob, resetAcceptance, resolveHire } from "@/lib/invitations";
 import { planJob } from "@/lib/plan-job";
 import { toMinor, CURRENCIES } from "@/lib/money";
 import { parsePhoto } from "@/lib/photo-input";
@@ -22,15 +23,15 @@ export async function createJob(formData: FormData) {
   const description = String(formData.get("description")).trim();
   const currency = String(formData.get("currency"));
   const budget = Number(formData.get("budget"));
-  const freelancerEmail = String(formData.get("freelancerEmail")).trim().toLowerCase();
-  if (!description || !(budget > 0) || !freelancerEmail.includes("@")) throw new Error("Invalid job");
+  if (!user.roles.includes("client")) throw new Error("Add the client role in your profile to post jobs.");
+  if (!description || !(budget > 0)) throw new Error("Describe the job and set a budget.");
   if (!CURRENCIES.includes(currency)) throw new Error("Unsupported currency");
-  if (freelancerEmail === user.email) throw new Error("You can't hire yourself");
+  const hire = await resolveHire(user, { freelancerId: String(formData.get("freelancerId") ?? "") || undefined, email: String(formData.get("freelancerEmail") ?? "") });
 
   const plan = await planJob(description, budget);
   const notes = await Promise.all(plan.milestones.map((m) => lintChecklist(m.proofType === "photo" ? "photo" : "website", m.checklist)));
   const jobId = await db.transaction(async (tx) => {
-    const [job] = await tx.insert(jobs).values({ clientId: user.id, freelancerEmail, title: plan.title, description, currency }).returning();
+    const [job] = await tx.insert(jobs).values({ clientId: user.id, ...hire, status: "invited", title: plan.title, description, currency }).returning();
     for (const [i, m] of plan.milestones.entries()) {
       const proofType = m.proofType === "photo" ? "photo" : "website";
       const [ms] = await tx.insert(milestones).values({ jobId: job.id, position: i, title: m.title, proofType, amountMinor: toMinor(m.amount, currency) }).returning();
@@ -65,6 +66,7 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
     await tx.delete(checklistItems).where(eq(checklistItems.milestoneId, milestoneId));
     await tx.insert(checklistItems).values(finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement, lintNote: notes[position] })));
   });
+  await resetAcceptance(row.j.id);
   revalidatePath(`/jobs/${row.j.id}`);
 }
 
@@ -122,4 +124,16 @@ export async function retryRelease(milestoneId: string) {
   const { j } = await requireClientOf(milestoneId);
   await release(milestoneId);
   revalidatePath(`/jobs/${j.id}`);
+}
+
+export async function acceptInvitation(jobId: string) {
+  const user = await requireUser();
+  await acceptJob(jobId, user);
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function declineInvitation(jobId: string, formData: FormData) {
+  const user = await requireUser();
+  await declineJob(jobId, user, String(formData.get("note") ?? ""));
+  revalidatePath(`/jobs/${jobId}`);
 }

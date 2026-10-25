@@ -22,6 +22,7 @@ const record = (milestoneId: string, kind: string, amountMinor: number, currency
 
 export async function startFunding(milestoneId: string) {
   const { m, j, state } = await load(milestoneId);
+  if (j.status !== "accepted") throw new Error("The freelancer hasn't accepted this job yet.");
   const direct = m.state === "draft" ? env.PAYOUT_MODE === "direct" : m.direct; // mode is fixed at first funding
   const { orderId, approveUrl } = await createOrder({
     milestoneId, title: `${j.title} — ${m.title}`, amountMinor: m.amountMinor, currency: j.currency,

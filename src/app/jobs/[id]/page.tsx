@@ -2,14 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
-  ReceiptText, Send, Wallet, XCircle,
+  Hourglass, MailOpen, ReceiptText, Send, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryRelease } from "../actions";
+import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryRelease, acceptInvitation, declineInvitation } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
@@ -183,7 +183,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         <Proof m={m} />
 
         <div className="flex flex-wrap items-center gap-3">
-          {isClient && ["draft", "funding"].includes(m.state) && (
+          {isClient && job.status === "accepted" && ["draft", "funding"].includes(m.state) && (
             <form action={fundMilestone.bind(null, m.id)}>
               <SubmitButton className={btn.paypal} pending="Opening PayPal…"><Lock aria-hidden className="size-4" /> Fund {formatMoney(m.amountMinor, job.currency)} with PayPal</SubmitButton>
             </form>
@@ -219,11 +219,58 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
   );
 }
 
+// Consent before money: the freelancer accepts the exact milestones and checklists first.
+function Invitation({ data }: { data: Loaded }) {
+  const { job, role, client, freelancer, milestones } = data;
+  const total = formatMoney(milestones.reduce((s, m) => s + m.amountMinor, 0), job.currency);
+  if (job.status === "declined") {
+    return (
+      <Banner tone="bg-slate-100 text-slate-800" icon={<XCircle aria-hidden className="size-5 shrink-0" />}>
+        <p className="font-semibold">{role === "client" ? `${freelancer.name} declined this job.` : "You declined this job."}</p>
+        {job.declineNote && <p>“{job.declineNote}”</p>}
+        {role === "client" && <p><Link href="/freelancers" className="font-semibold underline">Find another freelancer</Link></p>}
+      </Banner>
+    );
+  }
+  if (job.status !== "invited") return null;
+  if (role === "client") {
+    return (
+      <Banner tone="bg-sky-50 text-sky-900" icon={<Hourglass aria-hidden className="size-5 shrink-0" />}>
+        <p className="font-semibold">Waiting for {freelancer.name} to accept.</p>
+        <p>They&apos;re reviewing the milestones and checklists below. You can fund once they accept; editing a milestone asks them to accept again.</p>
+      </Banner>
+    );
+  }
+  return (
+    <Card className="space-y-4 border-brand/40 p-5 shadow-[0_12px_32px_-16px_rgba(3,105,161,0.35)]">
+      <div className="flex items-start gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand"><MailOpen aria-hidden className="size-5" /></span>
+        <div>
+          <h2 className="font-display text-xl font-semibold">{client.name} invited you · {total}</h2>
+          <p className="text-sm text-ink-soft">Check the milestones and checklists below. The AI verifies your work against exactly these items, and the money is held by PayPal before you start.</p>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-start gap-3">
+        <form action={acceptInvitation.bind(null, job.id)}>
+          <SubmitButton className={btn.primary} pending="Accepting…"><CheckCircle2 aria-hidden className="size-4" /> Accept job</SubmitButton>
+        </form>
+        <details className="group">
+          <summary className={`${btn.secondary} list-none`}>Decline</summary>
+          <form action={declineInvitation.bind(null, job.id)} className="mt-3 space-y-2">
+            <label className="block space-y-1 text-sm font-medium">Note for {client.name} (optional)<textarea name="note" rows={2} maxLength={300} className={field} placeholder="Thanks, but I'm fully booked this month." /></label>
+            <SubmitButton className={btn.danger} pending="Declining…">Decline invitation</SubmitButton>
+          </form>
+        </details>
+      </div>
+    </Card>
+  );
+}
+
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const data = await loadJobForUser((await params).id, user);
   const payments = await loadPaymentsForUser(user, { jobId: data.job.id });
-  const { job, role, milestones, clientEmail } = data;
+  const { job, role, milestones, client, freelancer } = data;
   const total = milestones.reduce((s, m) => s + m.amountMinor, 0);
   const paid = milestones.filter((m) => m.state === "paid_out").reduce((s, m) => s + m.amountMinor, 0);
   const held = milestones.filter((m) => ["funded", "verifying", "failed", "passed"].includes(m.state)).reduce((s, m) => s + m.amountMinor, 0);
@@ -239,10 +286,19 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
           <p className="whitespace-pre-wrap leading-relaxed text-ink-soft">{job.description}</p>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
-            <div><dt className="text-ink-soft">Client</dt><dd className="font-medium break-all">{clientEmail}</dd></div>
-            <div><dt className="text-ink-soft">Freelancer</dt><dd className="font-medium break-all">{job.freelancerEmail}</dd></div>
+            {[["Client", client], ["Freelancer", freelancer]].map(([label, p]) => {
+              const person = p as typeof client;
+              return (
+                <div key={label as string}><dt className="text-ink-soft">{label as string}</dt>
+                  <dd className="font-medium break-all">{person.name}{person.detail && <span className="font-normal text-ink-soft"> · {person.detail}</span>}</dd>
+                  {person.name !== person.email && <dd className="text-xs text-ink-soft break-all">{person.email}</dd>}
+                </div>
+              );
+            })}
           </dl>
         </div>
+
+        <Invitation data={data} />
         <div className="grid grid-cols-3 gap-3">
           {[["Total", total], ["On hold", held], ["Paid", paid]].map(([label, v]) => (
             <Card key={label as string} className="p-4"><p className="text-sm text-ink-soft">{label}</p><p className="text-lg font-bold tabular-nums">{formatMoney(v as number, job.currency)}</p></Card>
