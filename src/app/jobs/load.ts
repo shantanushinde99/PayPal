@@ -14,7 +14,9 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
   const [items, subs, evs] = ids.length
     ? await Promise.all([
         db.select().from(checklistItems).where(inArray(checklistItems.milestoneId, ids)).orderBy(asc(checklistItems.position)),
-        db.select().from(submissions).where(inArray(submissions.milestoneId, ids)).orderBy(desc(submissions.createdAt)),
+        // Not the audit report: it carries per-page screenshots and this page polls while checks run.
+        db.select({ id: submissions.id, milestoneId: submissions.milestoneId, url: submissions.url, beforePhoto: submissions.beforePhoto, afterPhoto: submissions.afterPhoto, createdAt: submissions.createdAt })
+          .from(submissions).where(inArray(submissions.milestoneId, ids)).orderBy(desc(submissions.createdAt)),
         db.select().from(events).where(inArray(events.milestoneId, ids)).orderBy(asc(events.createdAt)),
       ])
     : [[], [], []];

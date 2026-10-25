@@ -110,7 +110,7 @@ export async function checkWebsite(o: {
   const ids = o.checklist.map((c) => c.id);
   const site = new URL(o.url);
   const start = site.origin + site.pathname; // drop query/fragment: no room for injected text
-  const kb = await kernel.browsers.create({ stealth: true, timeout_seconds: 300 });
+  const kb = await kernel.browsers.create({ stealth: true, timeout_seconds: 600 });
   const browser = await chromium.connectOverCDP(kb.cdp_ws_url);
   try {
     const context = browser.contexts()[0] ?? (await browser.newContext());
@@ -151,6 +151,13 @@ export async function checkWebsite(o: {
       let result: string;
       const extra: Part[] = [];
       try {
+        // Redirects and clicks can land elsewhere: never judge or touch another website.
+        const stayOnSite = async () => {
+          if (sameSite(page.url(), start)) return;
+          const went = new URL(page.url()).hostname;
+          await page.goto(start, { waitUntil: "domcontentloaded", timeout: 20_000 }).catch(() => {});
+          throw new Error(`The page left the site (went to ${went}). Only ${site.hostname} can be checked.`);
+        };
         const onSite = (u: string) => {
           const target = new URL(u, start);
           if (!sameSite(target.toString(), start)) throw new Error(`Only pages on ${site.hostname} can be opened`);
@@ -160,19 +167,25 @@ export async function checkWebsite(o: {
           const target = onSite(args.url);
           await o.log(`Opening ${target}`);
           await page.goto(target, { waitUntil: "domcontentloaded", timeout: 20_000 });
+          await stayOnSite();
           result = await pageText(page);
         } else if (call.name === "click") {
           await o.log(`Clicking "${args.text}"`);
           await page.getByText(args.text, { exact: false }).first().click({ timeout: 5_000 });
           await page.waitForLoadState("domcontentloaded");
+          await stayOnSite();
           result = await pageText(page);
         } else if (call.name === "test_form") {
           const target = onSite(args.pageUrl);
           await o.log(`Testing the form on ${new URL(target).pathname} with test data`);
           await page.goto(target, { waitUntil: "domcontentloaded", timeout: 20_000 });
+          await stayOnSite(); // never fill in someone else's form
           const before = page.url();
           await fillAndSubmit(page, Number(args.formIndex ?? 0));
-          result = `Form submitted with test data. URL before: ${before}. URL after: ${page.url()}.\n${await pageText(page)}`;
+          const after = page.url();
+          // Form services (Formspree, Netlify…) may show their own thank-you page: report it, then come back.
+          const handoff = sameSite(after, start) ? "" : ` (the form handed off to ${new URL(after).hostname}, a form service)`;
+          result = `Form submitted with test data. URL before: ${before}. URL after: ${after}${handoff}.\n${await pageText(page)}`;
         } else if (call.name === "resize_to_phone") {
           await page.setViewportSize({ width: 390, height: 844 });
           result = "Viewport is now 390x844 (phone). Screenshot attached.";
