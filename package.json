@@ -1,0 +1,38 @@
+{
+  "name": "proof-of-done",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "db:push": "drizzle-kit push"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "@google/genai": "^2.31.0",
+    "@onkernel/sdk": "^0.129.0",
+    "drizzle-orm": "^0.45.4",
+    "next": "16.4.3",
+    "next-auth": "^5.0.0-beta.32",
+    "playwright-core": "^1.64.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.3",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.0.5"
+  }
+}
