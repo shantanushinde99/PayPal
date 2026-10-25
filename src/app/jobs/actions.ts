@@ -10,6 +10,8 @@ import { requireUser } from "@/lib/session";
 import { planJob } from "@/lib/plan-job";
 import { toMinor, CURRENCIES } from "@/lib/money";
 import { parsePhoto } from "@/lib/photo-input";
+import { withDesignItem } from "@/lib/design-reference";
+import { lintChecklist } from "@/lib/lint-checklist";
 import { startFunding, cancel, release } from "@/lib/payments";
 import { runVerification } from "@/lib/verify/run";
 import type { MilestoneState } from "@/lib/milestone-state";
@@ -25,12 +27,13 @@ export async function createJob(formData: FormData) {
   if (freelancerEmail === user.email) throw new Error("You can't hire yourself");
 
   const plan = await planJob(description, budget);
+  const notes = await Promise.all(plan.milestones.map((m) => lintChecklist(m.proofType === "photo" ? "photo" : "website", m.checklist)));
   const jobId = await db.transaction(async (tx) => {
     const [job] = await tx.insert(jobs).values({ clientId: user.id, freelancerEmail, title: plan.title, description, currency }).returning();
     for (const [i, m] of plan.milestones.entries()) {
       const proofType = m.proofType === "photo" ? "photo" : "website";
       const [ms] = await tx.insert(milestones).values({ jobId: job.id, position: i, title: m.title, proofType, amountMinor: toMinor(m.amount, currency) }).returning();
-      await tx.insert(checklistItems).values(m.checklist.map((requirement, position) => ({ milestoneId: ms.id, position, requirement })));
+      await tx.insert(checklistItems).values(m.checklist.map((requirement, position) => ({ milestoneId: ms.id, position, requirement, lintNote: notes[i][position] })));
     }
     return job.id;
   });
@@ -48,12 +51,18 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
   const amount = Number(formData.get("amount"));
   if (!requirements.length || !(amount > 0)) throw new Error("Need at least one requirement and an amount");
 
+  const proofType = formData.get("proofType") === "photo" ? "photo" : "website";
+  const reference = proofType === "website" ? String(formData.get("referenceImage") ?? "") : "";
+  if (reference) parsePhoto(reference); // throws on non-images / oversized
+  const finalRequirements = reference ? withDesignItem(requirements) : requirements;
+  const notes = await lintChecklist(proofType, finalRequirements);
+
   await db.transaction(async (tx) => {
-    const proofType = formData.get("proofType") === "photo" ? "photo" : "website";
-    await tx.update(milestones).set({ title: String(formData.get("title")), proofType, amountMinor: toMinor(amount, row.j.currency) })
-      .where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
+    await tx.update(milestones).set({
+      title: String(formData.get("title")), proofType, amountMinor: toMinor(amount, row.j.currency), referenceImage: reference || null,
+    }).where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
     await tx.delete(checklistItems).where(eq(checklistItems.milestoneId, milestoneId));
-    await tx.insert(checklistItems).values(requirements.map((requirement, position) => ({ milestoneId, position, requirement })));
+    await tx.insert(checklistItems).values(finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement, lintNote: notes[position] })));
   });
   revalidatePath(`/jobs/${row.j.id}`);
 }

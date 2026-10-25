@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, Globe, Loader2, Lock,
+  AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
   ReceiptText, Send, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
@@ -12,7 +12,7 @@ import { SubmitButton } from "@/components/submit-button";
 import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryRelease } from "../actions";
 import { loadJobForUser } from "../load";
 import { AutoRefresh } from "./auto-refresh";
-import { PhotoProofForm } from "./photo-proof-form";
+import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
 
 type Loaded = Awaited<ReturnType<typeof loadJobForUser>>;
 type M = Loaded["milestones"][number];
@@ -80,6 +80,7 @@ function Proof({ m }: { m: M }) {
           ))}
         </div>
       )}
+      <Link href={`/jobs/${m.jobId}/report/${s.id}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><FileText aria-hidden className="size-4" /> View proof report</Link>
     </div>
   );
 }
@@ -146,10 +147,31 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
               <textarea name="checklist" rows={Math.max(3, m.checklist.length + 1)} className={field} defaultValue={m.checklist.map((c) => c.requirement).join("\n")} />
             </label>
+            {m.checklist.some((c) => c.lintNote) && (
+              <ul className="space-y-1.5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                {m.checklist.filter((c) => c.lintNote).map((c) => (
+                  <li key={c.id} className="flex gap-2"><Lightbulb aria-hidden className="mt-0.5 size-4 shrink-0" /><span><b>{c.requirement}</b>: {c.lintNote}</span></li>
+                ))}
+              </ul>
+            )}
+            {m.proofType === "website" && (
+              <div className="max-w-xs">
+                <PhotoPicker name="referenceImage" label="Reference design (optional)" initial={m.referenceImage ?? ""} />
+                <p className="mt-1 text-xs text-ink-soft">A mockup or screenshot. The AI compares the live homepage with it.</p>
+              </div>
+            )}
             <SubmitButton className={btn.secondary} pending="Saving…">Save checklist</SubmitButton>
           </form>
         ) : (
           <Checklist m={m} />
+        )}
+
+        {m.state !== "draft" && m.referenceImage && (
+          <figure className="max-w-xs space-y-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={m.referenceImage} alt="Reference design" className="rounded-lg border border-line" />
+            <figcaption className="text-xs text-ink-soft">Reference design</figcaption>
+          </figure>
         )}
 
         <Proof m={m} />

@@ -44,3 +44,10 @@ describe("normalizeVerdict duplicates", () => {
     expect(v[0].status).toBe("fail");
   });
 });
+
+describe("normalizeVerdict evidence", () => {
+  it("keeps evidence and the page it was found on", () => {
+    const v = normalizeVerdict(["a"], [{ checklistItemId: "a", status: "pass", reason: "ok", evidence: "mailto:hello@b.test", pageUrl: "https://b.test/contact" }]);
+    expect(v[0]).toMatchObject({ evidence: "mailto:hello@b.test", pageUrl: "https://b.test/contact" });
+  });
+});

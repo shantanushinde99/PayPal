@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
@@ -28,6 +28,7 @@ export const milestones = pgTable("milestones", {
   proofType: text().notNull().default("website"),
   state: text().notNull().default("draft"),
   direct: boolean().notNull().default(false), // funded with the freelancer as payee (no payout step)
+  referenceImage: text(), // optional client design reference (image data URL)
   orderId: text(),
   authorizationId: text(),
   captureId: text(),
@@ -41,6 +42,7 @@ export const checklistItems = pgTable("checklist_items", {
   milestoneId: uuid().notNull().references(() => milestones.id),
   position: integer().notNull(),
   requirement: text().notNull(),
+  lintNote: text(), // checklist checker hint, null = fine
 });
 
 export const submissions = pgTable("submissions", {
@@ -49,6 +51,7 @@ export const submissions = pgTable("submissions", {
   url: text(), // website proof
   beforePhoto: text(), // photo proof: image data URLs (demo scale)
   afterPhoto: text(),
+  report: jsonb(), // SiteReport for website proofs
   createdAt: timestamp().notNull().defaultNow(),
 });
 
@@ -58,6 +61,8 @@ export const verdictItems = pgTable("verdict_items", {
   checklistItemId: uuid().notNull().references(() => checklistItems.id),
   status: text().notNull(),
   reason: text().notNull(),
+  evidence: text(),
+  pageUrl: text(),
 });
 
 // Audit log + live agent steps. image = base64 JPEG (demo scale).
