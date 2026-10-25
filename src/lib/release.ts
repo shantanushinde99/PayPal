@@ -1,5 +1,5 @@
 export type VerdictStatus = "pass" | "fail" | "unsure";
-export type VerdictItem = { checklistItemId: string; status: VerdictStatus; reason: string };
+export type VerdictItem = { checklistItemId: string; status: VerdictStatus; reason: string; evidence?: string; pageUrl?: string };
 
 const STATUSES = new Set<string>(["pass", "fail", "unsure"]);
 const RANK: Record<string, number> = { pass: 0, unsure: 1, fail: 2 };
@@ -18,7 +18,11 @@ export function normalizeVerdict(checklistIds: string[], raw: unknown[]): Verdic
     const r = byId.get(id);
     if (!r) return { checklistItemId: id, status: "unsure", reason: "The AI did not check this item." };
     const status = STATUSES.has(String(r.status)) ? (r.status as VerdictStatus) : "unsure";
-    return { checklistItemId: id, status, reason: String(r.reason ?? "") };
+    return {
+      checklistItemId: id, status, reason: String(r.reason ?? ""),
+      ...(r.evidence ? { evidence: String(r.evidence).slice(0, 500) } : {}),
+      ...(r.pageUrl ? { pageUrl: String(r.pageUrl).slice(0, 500) } : {}),
+    };
   });
 }
 

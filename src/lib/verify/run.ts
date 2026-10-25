@@ -41,9 +41,14 @@ async function verify(milestoneId: string, submissionId: string): Promise<boolea
 
   let verdict: VerdictItem[];
   try {
-    verdict = m.proofType === "photo"
-      ? await checkPhotos({ before: parsePhoto(sub.beforePhoto ?? ""), after: parsePhoto(sub.afterPhoto ?? ""), checklist, log })
-      : await checkWebsite({ url: sub.url ?? "", checklist, log });
+    if (m.proofType === "photo") {
+      verdict = await checkPhotos({ before: parsePhoto(sub.beforePhoto ?? ""), after: parsePhoto(sub.afterPhoto ?? ""), checklist, log });
+    } else {
+      const reference = m.referenceImage ? parsePhoto(m.referenceImage) : undefined;
+      const r = await checkWebsite({ url: sub.url ?? "", checklist, reference, log });
+      verdict = r.verdict;
+      await db.update(submissions).set({ report: r.report }).where(eq(submissions.id, submissionId));
+    }
   } catch (e) {
     const reason = `The check could not finish: ${(e as Error).message}`;
     await logError(milestoneId, reason);
