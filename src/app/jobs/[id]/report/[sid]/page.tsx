@@ -11,6 +11,7 @@ import { Header } from "@/components/header";
 import { Card, StatusBadge } from "@/components/ui";
 import { loadJobForUser } from "../../../load";
 import { PrintButton } from "./print-button";
+import { LocalTime } from "@/components/local-time";
 
 const ICON = {
   pass: { Icon: CheckCircle2, cls: "text-emerald-600", label: "Verified" },
@@ -46,7 +47,7 @@ export default async function ProofReport({ params }: { params: Promise<{ id: st
           <p className="text-sm font-semibold uppercase tracking-wide text-brand">Proof report</p>
           <h1 className="text-3xl font-bold tracking-tight">{job.title}</h1>
           <p className="text-ink-soft">Milestone {m.position + 1}: {m.title} · {formatMoney(m.amountMinor, job.currency)}</p>
-          <div className="flex flex-wrap items-center gap-3"><StatusBadge state={m.state} /><span className="text-sm text-ink-soft">Checked {sub.createdAt.toLocaleString()}</span></div>
+          <div className="flex flex-wrap items-center gap-3"><StatusBadge state={m.state} /><span className="text-sm text-ink-soft">Checked <LocalTime date={sub.createdAt} mode="full" /></span></div>
         </header>
 
         <Card className="grid gap-4 p-5 sm:grid-cols-3">

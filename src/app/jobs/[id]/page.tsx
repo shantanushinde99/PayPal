@@ -13,6 +13,7 @@ import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryReleas
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
+import { LocalTime } from "@/components/local-time";
 import { AutoRefresh } from "./auto-refresh";
 import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
 
@@ -109,7 +110,7 @@ function Activity({ m }: { m: M }) {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 {e.image && <img src={`data:image/jpeg;base64,${e.image}`} alt="What the AI saw" className="max-h-56 rounded-md border border-line" />}
               </div>
-              <time className="shrink-0 tabular-nums text-xs text-ink-soft">{e.createdAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
+              <span className="shrink-0 tabular-nums text-xs text-ink-soft"><LocalTime date={e.createdAt} mode="time" /></span>
             </li>
           );
         })}

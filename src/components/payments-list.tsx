@@ -4,14 +4,13 @@ import { captureStatus } from "@/lib/paypal";
 import { formatMoney } from "@/lib/money";
 import { Card } from "@/components/ui";
 import { CopyId } from "@/components/copy-id";
+import { LocalTime } from "@/components/local-time";
 
 const TONE = {
   held: { Icon: Lock, circle: "bg-sky-100 text-sky-700", amount: "text-ink", chip: "bg-sky-50 text-sky-800" },
   done: { Icon: CheckCircle2, circle: "bg-emerald-100 text-emerald-700", amount: "text-emerald-700", chip: "bg-emerald-50 text-emerald-800" },
   returned: { Icon: Undo2, circle: "bg-slate-100 text-slate-600", amount: "text-slate-600", chip: "bg-slate-100 text-slate-700" },
 };
-
-const when = (d: Date) => d.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 // Google Pay–style history. Completed payments are re-checked with PayPal for a "Confirmed" badge.
 export async function PaymentsList({ items, showJob = false, empty }: { items: PaymentItem[]; showJob?: boolean; empty: string }) {
@@ -27,7 +26,7 @@ export async function PaymentsList({ items, showJob = false, empty }: { items: P
               <span className={`grid size-10 shrink-0 place-items-center rounded-full ${t.circle}`}><t.Icon aria-hidden className="size-5" /></span>
               <div className="min-w-0 flex-1 space-y-0.5">
                 <p className="truncate font-semibold">{p.view.title}</p>
-                <p className="truncate text-sm text-ink-soft">{showJob ? `${p.jobTitle} · ` : ""}{p.milestoneTitle} · {when(p.createdAt)}</p>
+                <p className="truncate text-sm text-ink-soft">{showJob ? `${p.jobTitle} · ` : ""}{p.milestoneTitle} · <LocalTime date={p.createdAt} /></p>
                 <div className="flex flex-wrap items-center gap-x-2">
                   <CopyId value={p.paypalId} />
                   {confirmed[i] === "COMPLETED" && (

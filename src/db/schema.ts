@@ -6,7 +6,7 @@ export const users = pgTable("users", {
   name: text(),
   homeCurrency: text().notNull().default("USD"),
   isAdmin: boolean().notNull().default(false),
-  createdAt: timestamp().notNull().defaultNow(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
 export const jobs = pgTable("jobs", {
@@ -16,7 +16,7 @@ export const jobs = pgTable("jobs", {
   title: text().notNull(),
   description: text().notNull(),
   currency: text().notNull(),
-  createdAt: timestamp().notNull().defaultNow(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
 export const milestones = pgTable("milestones", {
@@ -34,7 +34,7 @@ export const milestones = pgTable("milestones", {
   captureId: text(),
   payoutBatchId: text(),
   failReason: text(),
-  createdAt: timestamp().notNull().defaultNow(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
 export const checklistItems = pgTable("checklist_items", {
@@ -52,7 +52,7 @@ export const submissions = pgTable("submissions", {
   beforePhoto: text(), // photo proof: image data URLs (demo scale)
   afterPhoto: text(),
   report: jsonb(), // SiteReport for website proofs
-  createdAt: timestamp().notNull().defaultNow(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
 export const verdictItems = pgTable("verdict_items", {
@@ -73,7 +73,7 @@ export const payments = pgTable("payments", {
   amountMinor: integer().notNull(),
   currency: text().notNull(),
   paypalId: text().notNull(),
-  createdAt: timestamp().notNull().defaultNow(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
 // Audit log + live agent steps. image = base64 JPEG (demo scale).
@@ -83,7 +83,7 @@ export const events = pgTable("events", {
   kind: text().notNull(), // state | agent | payment | error
   message: text().notNull(),
   image: text(),
-  createdAt: timestamp().notNull().defaultNow(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
 export type Job = typeof jobs.$inferSelect;

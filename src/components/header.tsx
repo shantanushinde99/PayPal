@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogOut, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, LogOut, ShieldCheck, Wallet } from "lucide-react";
 import { signOut } from "@/auth";
 
 export function Logo({ light = false }: { light?: boolean }) {
@@ -16,6 +16,12 @@ export function Header({ email }: { email?: string }) {
     <header className="sticky top-0 z-10 border-b border-line bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
         <Logo />
+        {email && (
+          <nav aria-label="Account" className="flex items-center gap-1 text-sm font-medium">
+            <Link href="/" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-ink-soft transition-colors hover:bg-canvas hover:text-ink"><LayoutDashboard aria-hidden className="size-4" /><span className="hidden sm:inline">Dashboard</span></Link>
+            <Link href="/wallet" className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-ink-soft transition-colors hover:bg-canvas hover:text-ink"><Wallet aria-hidden className="size-4" /><span className="hidden sm:inline">Wallet</span></Link>
+          </nav>
+        )}
         {email && (
           <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }} className="flex items-center gap-3">
             <span className="hidden text-sm text-ink-soft sm:inline">{email}</span>

@@ -98,7 +98,7 @@ export default async function Home() {
           ))}
         </div>
         <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Recent payments</h2>
+          <div className="flex items-center justify-between"><h2 className="text-lg font-semibold">Recent payments</h2><Link href="/wallet" className="text-sm font-semibold text-brand hover:underline">Open wallet →</Link></div>
           <PaymentsList items={recent} showJob empty="No payments yet. Every hold, payment and release will show up here with its PayPal ID." />
         </section>
         <JobList title="Jobs I posted" items={posted} ms={ms} who={(j) => `Freelancer ${j.freelancerEmail}`} empty="No jobs yet. Post one and let AI draft the milestones." />
