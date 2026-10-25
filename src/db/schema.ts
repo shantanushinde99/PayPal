@@ -46,7 +46,9 @@ export const checklistItems = pgTable("checklist_items", {
 export const submissions = pgTable("submissions", {
   id: uuid().primaryKey().defaultRandom(),
   milestoneId: uuid().notNull().references(() => milestones.id),
-  url: text().notNull(),
+  url: text(), // website proof
+  beforePhoto: text(), // photo proof: image data URLs (demo scale)
+  afterPhoto: text(),
   createdAt: timestamp().notNull().defaultNow(),
 });
 

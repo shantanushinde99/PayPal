@@ -1,3 +1,5 @@
+export const CURRENCIES = ["USD", "EUR", "GBP", "CAD", "AUD", "JPY"];
+
 const ZERO_DECIMAL = new Set(["JPY", "HUF", "TWD"]);
 const FEE_BPS = 500;
 

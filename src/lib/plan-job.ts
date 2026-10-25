@@ -1,6 +1,7 @@
 import { generate } from "@/lib/gemini";
 
-export type JobPlan = { title: string; milestones: { title: string; amount: number; checklist: string[] }[] };
+export type ProofType = "website" | "photo";
+export type JobPlan = { title: string; milestones: { title: string; amount: number; proofType: ProofType; checklist: string[] }[] };
 
 const schema = {
   type: "object",
@@ -13,9 +14,10 @@ const schema = {
         properties: {
           title: { type: "string" },
           amount: { type: "number" },
+          proofType: { type: "string", enum: ["website", "photo"] },
           checklist: { type: "array", minItems: 2, maxItems: 8, items: { type: "string" } },
         },
-        required: ["title", "amount", "checklist"],
+        required: ["title", "amount", "proofType", "checklist"],
       },
     },
   },
@@ -27,9 +29,11 @@ export async function planJob(description: string, budget: number): Promise<JobP
     contents: `Job description from a client:\n"""${description}"""\nTotal budget: ${budget}`,
     config: {
       systemInstruction:
-        "You split freelance web jobs into 1-3 milestones whose amounts sum exactly to the budget. " +
-        "Each milestone's proof is a live website URL. Write checklist items that a reviewer can verify " +
-        "just by visiting the website: concrete, observable, one requirement each. No vague items like 'high quality'.",
+        "You split a freelance job into 1-3 milestones whose amounts sum exactly to the budget. " +
+        "Pick each milestone's proofType: 'website' for anything delivered online (sites, pages, web apps), " +
+        "'photo' for physical work (painting, repairs, cleaning, installs, crafts) proven with before/after photos. " +
+        "Write checklist items a reviewer can verify from that proof alone: concrete, observable, one requirement each. " +
+        "No vague items like 'high quality'.",
       responseMimeType: "application/json",
       responseJsonSchema: schema,
     },

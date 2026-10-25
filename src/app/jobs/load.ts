@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, milestones, checklistItems, submissions, verdictItems, events } from "@/db/schema";
+import { jobs, milestones, checklistItems, submissions, verdictItems, events, users } from "@/db/schema";
 
 export async function loadJobForUser(jobId: string, user: { id: string; email: string }) {
   const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId));
@@ -22,8 +22,10 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
   const subIds = latest.flatMap((s) => (s ? [s.id] : []));
   const verdicts = subIds.length ? await db.select().from(verdictItems).where(inArray(verdictItems.submissionId, subIds)) : [];
 
+  const [client] = await db.select({ email: users.email }).from(users).where(eq(users.id, job.clientId));
+
   return {
-    job, role,
+    job, role, clientEmail: client?.email ?? "",
     milestones: ms.map((m, i) => ({
       ...m,
       checklist: items.filter((c) => c.milestoneId === m.id),

@@ -1,6 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { checklistItems, events, milestones, submissions, verdictItems } from "@/db/schema";
+import { checkPhotos } from "@/lib/verify/photo";
+import { parsePhoto } from "@/lib/photo-input";
 import { transition } from "@/db/transition";
 import { checkWebsite } from "@/lib/verify/website";
 import { shouldRelease, type VerdictItem } from "@/lib/release";
@@ -33,12 +35,15 @@ async function verify(milestoneId: string, submissionId: string): Promise<boolea
   };
   const [sub] = await db.select().from(submissions).where(eq(submissions.id, submissionId));
   if (!sub) throw new Error("submission not found");
+  const [m] = await db.select().from(milestones).where(eq(milestones.id, milestoneId));
   const checklist = await db.select().from(checklistItems)
     .where(eq(checklistItems.milestoneId, milestoneId)).orderBy(asc(checklistItems.position));
 
   let verdict: VerdictItem[];
   try {
-    verdict = await checkWebsite({ url: sub.url, checklist, log });
+    verdict = m.proofType === "photo"
+      ? await checkPhotos({ before: parsePhoto(sub.beforePhoto ?? ""), after: parsePhoto(sub.afterPhoto ?? ""), checklist, log })
+      : await checkWebsite({ url: sub.url ?? "", checklist, log });
   } catch (e) {
     const reason = `The check could not finish: ${(e as Error).message}`;
     await logError(milestoneId, reason);
@@ -48,7 +53,7 @@ async function verify(milestoneId: string, submissionId: string): Promise<boolea
 
   if (!shouldRelease(verdict)) {
     const missing = verdict.filter((v) => v.status !== "pass").length;
-    await transition(milestoneId, "verifying", "failed", { failReason: `${missing} item(s) not met yet` });
+    await transition(milestoneId, "verifying", "failed", { failReason: `${missing} checklist item${missing === 1 ? "" : "s"} still need${missing === 1 ? "s" : ""} work` });
     return false;
   }
   await transition(milestoneId, "verifying", "passed");

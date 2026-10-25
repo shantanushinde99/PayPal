@@ -8,7 +8,8 @@ import { jobs, milestones, checklistItems, submissions } from "@/db/schema";
 import { transition } from "@/db/transition";
 import { requireUser } from "@/lib/session";
 import { planJob } from "@/lib/plan-job";
-import { toMinor } from "@/lib/money";
+import { toMinor, CURRENCIES } from "@/lib/money";
+import { parsePhoto } from "@/lib/photo-input";
 import { startFunding, cancel, release } from "@/lib/payments";
 import { runVerification } from "@/lib/verify/run";
 import type { MilestoneState } from "@/lib/milestone-state";
@@ -20,13 +21,15 @@ export async function createJob(formData: FormData) {
   const budget = Number(formData.get("budget"));
   const freelancerEmail = String(formData.get("freelancerEmail")).trim().toLowerCase();
   if (!description || !(budget > 0) || !freelancerEmail.includes("@")) throw new Error("Invalid job");
+  if (!CURRENCIES.includes(currency)) throw new Error("Unsupported currency");
   if (freelancerEmail === user.email) throw new Error("You can't hire yourself");
 
   const plan = await planJob(description, budget);
   const jobId = await db.transaction(async (tx) => {
     const [job] = await tx.insert(jobs).values({ clientId: user.id, freelancerEmail, title: plan.title, description, currency }).returning();
     for (const [i, m] of plan.milestones.entries()) {
-      const [ms] = await tx.insert(milestones).values({ jobId: job.id, position: i, title: m.title, amountMinor: toMinor(m.amount, currency) }).returning();
+      const proofType = m.proofType === "photo" ? "photo" : "website";
+      const [ms] = await tx.insert(milestones).values({ jobId: job.id, position: i, title: m.title, proofType, amountMinor: toMinor(m.amount, currency) }).returning();
       await tx.insert(checklistItems).values(m.checklist.map((requirement, position) => ({ milestoneId: ms.id, position, requirement })));
     }
     return job.id;
@@ -46,7 +49,8 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
   if (!requirements.length || !(amount > 0)) throw new Error("Need at least one requirement and an amount");
 
   await db.transaction(async (tx) => {
-    await tx.update(milestones).set({ title: String(formData.get("title")), amountMinor: toMinor(amount, row.j.currency) })
+    const proofType = formData.get("proofType") === "photo" ? "photo" : "website";
+    await tx.update(milestones).set({ title: String(formData.get("title")), proofType, amountMinor: toMinor(amount, row.j.currency) })
       .where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
     await tx.delete(checklistItems).where(eq(checklistItems.milestoneId, milestoneId));
     await tx.insert(checklistItems).values(requirements.map((requirement, position) => ({ milestoneId, position, requirement })));
@@ -79,8 +83,16 @@ export async function submitProof(milestoneId: string, formData: FormData) {
     .innerJoin(jobs, eq(jobs.id, milestones.jobId)).where(eq(milestones.id, milestoneId));
   if (!row || row.j.freelancerEmail !== user.email) throw new Error("Not allowed");
 
-  const url = new URL(String(formData.get("url"))); // throws on junk
-  if (!["http:", "https:"].includes(url.protocol)) throw new Error("URL must be http(s)");
+  let proof: { url?: string; beforePhoto?: string; afterPhoto?: string };
+  if (row.m.proofType === "photo") {
+    const before = String(formData.get("beforePhoto") ?? ""), after = String(formData.get("afterPhoto") ?? "");
+    parsePhoto(before); parsePhoto(after); // throws on non-images / oversized
+    proof = { beforePhoto: before, afterPhoto: after };
+  } else {
+    const url = new URL(String(formData.get("url"))); // throws on junk
+    if (!["http:", "https:"].includes(url.protocol)) throw new Error("URL must be http(s)");
+    proof = { url: url.toString() };
+  }
 
   if (row.m.position > 0) {
     const [prev] = await db.select().from(milestones)
@@ -89,7 +101,7 @@ export async function submitProof(milestoneId: string, formData: FormData) {
   }
 
   await transition(milestoneId, row.m.state as MilestoneState, "verifying", { failReason: null });
-  const [sub] = await db.insert(submissions).values({ milestoneId, url: url.toString() }).returning();
+  const [sub] = await db.insert(submissions).values({ milestoneId, ...proof }).returning();
   after(() => runVerification(milestoneId, sub.id));
   revalidatePath(`/jobs/${row.j.id}`);
 }
