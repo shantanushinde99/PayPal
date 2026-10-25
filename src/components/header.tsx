@@ -2,9 +2,9 @@ import Link from "next/link";
 import { LogOut, ShieldCheck } from "lucide-react";
 import { signOut } from "@/auth";
 
-export function Logo() {
+export function Logo({ light = false }: { light?: boolean }) {
   return (
-    <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
+    <Link href="/" className={`inline-flex items-center gap-2 font-display text-lg font-bold tracking-tight ${light ? "text-white" : "text-ink"}`}>
       <span className="grid size-8 place-items-center rounded-lg bg-brand text-white"><ShieldCheck aria-hidden className="size-5" /></span>
       Verifund
     </Link>

@@ -6,10 +6,11 @@ import { Bot, Check, CircleDollarSign, Globe, Loader2, Lock, RotateCw, User, X }
 type Phase = "crawl" | "check" | "held" | "resubmit" | "recheck" | "paid";
 type ItemState = "idle" | "checking" | "pass" | "fail";
 
-// The whole story, on repeat: crawl → check → held → fix → re-check → paid.
-const TIMELINE: [Phase, number][] = [
-  ["crawl", 2800], ["check", 3400], ["held", 3000], ["resubmit", 1700], ["recheck", 1800], ["paid", 3600],
-];
+type Step = [Phase, number]; // duration 0 = stop here and wait for the visitor
+// Auto-play tells the whole story on repeat; the buttons let a visitor play the freelancer.
+const AUTO: Step[] = [["crawl", 2800], ["check", 3400], ["held", 3000], ["resubmit", 1700], ["recheck", 1800], ["paid", 3600]];
+const SUBMIT_V1: Step[] = [["crawl", 2400], ["check", 3400], ["held", 0]];
+const SHIP_FIX: Step[] = [["resubmit", 1400], ["recheck", 1800], ["paid", 0]];
 const PAGES = ["/", "/menu", "/about", "/contact"];
 const ITEMS = ["Menu with prices", "Opening hours", "All links work", "Contact form works"];
 const FAILING = 3;
@@ -104,29 +105,36 @@ function MoneyFlow({ phase }: { phase: Phase }) {
 }
 
 export function HeroDemo() {
-  const [step, setStep] = useState(0);
+  const [run, setRun] = useState<{ seq: Step[]; i: number; loop: boolean }>({ seq: AUTO, i: 0, loop: true });
   const [revealed, setRevealed] = useState(0);
-  const phase = TIMELINE[step][0];
+  const [phase, ms] = run.seq[run.i];
 
   useEffect(() => {
-    const t = setTimeout(() => { setRevealed(0); setStep((s) => (s + 1) % TIMELINE.length); }, TIMELINE[step][1]);
+    if (!ms) return; // waiting for the visitor
+    const t = setTimeout(() => {
+      setRevealed(0);
+      setRun((r) => (r.i + 1 < r.seq.length ? { ...r, i: r.i + 1 } : r.loop ? { ...r, i: 0 } : r));
+    }, ms);
     return () => clearTimeout(t);
-  }, [step]);
+  }, [run, ms]);
 
   useEffect(() => {
     if (phase !== "check") return;
     const t = setInterval(() => setRevealed((r) => Math.min(r + 1, ITEMS.length)), STEP_MS);
     return () => clearInterval(t);
-  }, [phase]);
+  }, [phase, run]);
+
+  const play = (seq: Step[], loop = false) => { setRevealed(0); setRun({ seq, i: 0, loop }); };
+  const manual = !run.loop;
 
   const badge = BADGE[phase];
   const version = phase === "resubmit" || phase === "recheck" || phase === "paid" ? "v2" : "v1";
 
   return (
     <MotionConfig reducedMotion="user">
-      <div role="img" aria-label="Animated example: the AI checks a bakery website, holds the payment because the contact form is missing, then releases $200 once it is fixed." className="relative">
-        <div aria-hidden className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-sky-200/60 via-white to-emerald-100/60 blur-2xl" />
-        <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-[0_20px_60px_-20px_rgba(3,105,161,0.35)]">
+      <section aria-label="Interactive demo: an AI checks a bakery website before releasing a $200 payment" className="relative">
+        <div aria-hidden className="absolute -inset-4 -z-10 rounded-[2rem] bg-gradient-to-br from-sky-500/35 via-violet-500/15 to-emerald-400/30 blur-2xl" />
+        <div className="overflow-hidden rounded-2xl border border-white/20 bg-white text-ink shadow-[0_30px_80px_-24px_rgba(56,189,248,0.45)]">
           <div className="flex items-center gap-3 border-b border-line bg-canvas px-4 py-3">
             <span className="flex gap-1.5" aria-hidden><span className="size-2.5 rounded-full bg-red-300" /><span className="size-2.5 rounded-full bg-amber-300" /><span className="size-2.5 rounded-full bg-emerald-300" /></span>
             <span className="flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-md bg-white px-2.5 py-1 text-xs text-ink-soft">
@@ -197,6 +205,7 @@ export function HeroDemo() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.25 }}
+                  aria-live="polite"
                   className={`rounded-lg px-3 py-2.5 text-sm ${BANNER[phase].tone}`}
                 >
                   {BANNER[phase].text}
@@ -209,7 +218,22 @@ export function HeroDemo() {
             </div>
           </div>
         </div>
-      </div>
+
+        <div className="mt-5 flex flex-wrap items-center gap-2 text-sm">
+          <span className="mr-1 font-medium text-slate-300">Try it, you&apos;re the freelancer:</span>
+          <button onClick={() => play(SUBMIT_V1)} className="min-h-10 cursor-pointer rounded-full border border-white/20 bg-white/10 px-4 font-semibold text-white transition-colors hover:bg-white/20">1 · Submit v1</button>
+          <motion.button
+            onClick={() => play(SHIP_FIX)}
+            disabled={!(manual && phase === "held")}
+            animate={manual && phase === "held"
+              ? { boxShadow: ["0 0 0 0 rgba(52,211,153,0.6)", "0 0 0 10px rgba(52,211,153,0)"] }
+              : { boxShadow: "0 0 0 0 rgba(52,211,153,0)" }}
+            transition={{ repeat: manual && phase === "held" ? Infinity : 0, duration: 1.4 }}
+            className="min-h-10 cursor-pointer rounded-full bg-emerald-500 px-4 font-semibold text-emerald-950 transition-colors hover:bg-emerald-400 disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-slate-500"
+          >2 · Ship the fix</motion.button>
+          {manual && <button onClick={() => play(AUTO, true)} className="min-h-10 cursor-pointer rounded-full px-3 font-medium text-slate-300 underline-offset-4 hover:text-white hover:underline">Auto-play</button>}
+        </div>
+      </section>
     </MotionConfig>
   );
 }

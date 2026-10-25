@@ -3,6 +3,8 @@
 /* Design tokens — trust blue, minimal Swiss style. */
 @theme {
   --font-sans: var(--font-plex), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-grotesk), var(--font-plex), ui-sans-serif, sans-serif;
+  --color-night: #050b1a;
   --color-brand: #0369a1;
   --color-brand-strong: #075985;
   --color-brand-soft: #e0f2fe;
@@ -26,3 +28,18 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Slow drifting glow blobs behind the dark hero. */
+@keyframes aurora {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(6%, -8%, 0) scale(1.18); }
+}
+.aurora { animation: aurora 16s ease-in-out infinite; will-change: transform; }
+
+/* Cursor spotlight: tiles get --mx/--my from <Spotlight>. */
+.spot { position: relative; isolation: isolate; }
+.spot::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1; opacity: 0; transition: opacity 0.3s;
+  background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(3, 105, 161, 0.10), transparent 60%);
+}
+.spot:hover::before { opacity: 1; }

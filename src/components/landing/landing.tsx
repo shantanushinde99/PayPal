@@ -1,12 +1,13 @@
 import {
-  ArrowRight, Bot, Camera, Check, CheckCircle2, ChevronDown, FileText, Globe, Lightbulb, Lock, MousePointerClick,
-  Palette, ScanSearch, ShieldCheck, Sparkles, XCircle,
+  ArrowRight, Bot, Check, CheckCircle2, ChevronDown, Globe, Lock, ShieldCheck, Sparkles, XCircle,
 } from "lucide-react";
 import { signIn } from "@/auth";
 import { Card } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { Logo } from "@/components/header";
 import { HeroDemo } from "./hero-demo";
+import { Bento } from "./bento";
+import { HeroShell, ScrollProgress } from "./effects";
 import { Pipeline } from "./pipeline";
 import { Reveal } from "./reveal";
 
@@ -29,20 +30,11 @@ function SectionTitle({ eyebrow, title, text }: { eyebrow: string; title: string
   return (
     <Reveal className="mx-auto max-w-2xl space-y-3 text-center">
       <p className="text-sm font-semibold uppercase tracking-wider text-brand">{eyebrow}</p>
-      <h2 className="text-3xl font-bold tracking-tight md:text-4xl">{title}</h2>
+      <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">{title}</h2>
       {text && <p className="text-lg leading-relaxed text-ink-soft">{text}</p>}
     </Reveal>
   );
 }
-
-const FEATURES = [
-  { Icon: ScanSearch, title: "Full-site audit", text: "Every page is visited on desktop and phone. Every link is tested, emails and phone numbers are matched exactly, broken images and script errors are caught." },
-  { Icon: MousePointerClick, title: "Real interaction tests", text: "The agent fills in contact forms with clearly marked test data and checks the confirmation, just like a careful client would." },
-  { Icon: Camera, title: "Before/after photo proof", text: "Painting, repairs, cleaning, installs: the AI compares both photos against the checklist and flags staged, identical or mismatched shots." },
-  { Icon: FileText, title: "Printable Proof Report", text: "Each check produces an evidence report: verdict per item, the quote or fact behind it, page screenshots, site map and PayPal transaction IDs." },
-  { Icon: Lightbulb, title: "Checklist checker", text: "Vague items like “looks modern” are flagged before money is held, with a concrete rewrite. Fewer arguments later." },
-  { Icon: Palette, title: "Design match", text: "Upload a mockup or screenshot. The AI compares the live homepage with it on layout, colours and main sections." },
-];
 
 const SAFETY = [
   { title: "Code releases money, not the AI", text: "The AI only reports pass/fail per item. Plain code pays out, and only when every single item passes. It can never pick an amount or a recipient." },
@@ -63,15 +55,16 @@ const FAQ = [
 export function Landing() {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-20 border-b border-line/70 bg-white/80 backdrop-blur">
+      <ScrollProgress />
+      <header className="sticky top-0 z-20 border-b border-white/10 bg-night/90 backdrop-blur-xl">
         <nav aria-label="Main" className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-4">
-          <Logo />
-          <div className="hidden items-center gap-7 text-sm font-medium text-ink-soft md:flex">
-            <a href="#how" className="hover:text-ink">How it works</a>
-            <a href="#features" className="hover:text-ink">Features</a>
-            <a href="#report" className="hover:text-ink">Proof report</a>
-            <a href="#safety" className="hover:text-ink">Safety</a>
-            <a href="#faq" className="hover:text-ink">FAQ</a>
+          <Logo light />
+          <div className="hidden items-center gap-7 text-sm font-medium text-slate-300 md:flex">
+            <a href="#how" className="transition-colors hover:text-white">How it works</a>
+            <a href="#features" className="transition-colors hover:text-white">Features</a>
+            <a href="#report" className="transition-colors hover:text-white">Proof report</a>
+            <a href="#safety" className="transition-colors hover:text-white">Safety</a>
+            <a href="#faq" className="transition-colors hover:text-white">FAQ</a>
           </div>
           <LoginButton label="Log in" />
         </nav>
@@ -79,42 +72,41 @@ export function Landing() {
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative overflow-hidden">
-          <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60rem_30rem_at_20%_-10%,#e0f2fe,transparent),radial-gradient(40rem_25rem_at_100%_10%,#ecfdf5,transparent)]" />
-          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 md:py-24 lg:grid-cols-[1.05fr_1fr] lg:items-center">
+        <HeroShell>
+          <div className="mx-auto grid w-full max-w-6xl gap-14 px-4 pb-16 pt-16 md:pb-24 md:pt-24 lg:grid-cols-[1.05fr_1fr] lg:items-center">
             <Reveal className="space-y-7">
-              <p className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-white px-3 py-1 text-sm font-medium text-brand-strong shadow-sm">
+              <p className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-sm font-medium text-sky-200 backdrop-blur">
                 <Sparkles aria-hidden className="size-4" /> AI escrow, built on PayPal
               </p>
-              <h1 className="text-5xl font-bold leading-[1.05] tracking-tight md:text-6xl">
-                Pay for <span className="bg-gradient-to-r from-brand to-emerald-600 bg-clip-text text-transparent">proof</span>, not promises.
+              <h1 className="font-display text-5xl font-bold leading-[1.02] tracking-tight md:text-7xl">
+                Pay for <span className="bg-gradient-to-r from-sky-300 via-cyan-200 to-emerald-300 bg-clip-text text-transparent">proof</span>,<br className="hidden sm:block" /> not promises.
               </h1>
-              <p className="max-w-xl text-lg leading-relaxed text-ink-soft md:text-xl">
+              <p className="max-w-xl text-lg leading-relaxed text-slate-300 md:text-xl">
                 Verifund holds each milestone payment with PayPal while an AI agent checks the delivered work against the checklist you both agreed on. When everything is verified, the money is released automatically, with an evidence report to prove it.
               </p>
               <div className="flex flex-wrap items-center gap-4">
                 <LoginButton large label="Start with PayPal" />
-                <a href="#how" className="inline-flex min-h-13 items-center gap-2 rounded-full border border-line bg-white px-6 font-semibold text-ink transition-colors hover:bg-canvas">
+                <a href="#how" className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/20 px-6 font-semibold text-white transition-colors hover:bg-white/10">
                   See how it works
                 </a>
               </div>
-              <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
+              <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
                 {["Funds held by PayPal", "Every page & link checked", "Released automatically"].map((t) => (
-                  <li key={t} className="inline-flex items-center gap-1.5"><CheckCircle2 aria-hidden className="size-4 text-emerald-600" />{t}</li>
+                  <li key={t} className="inline-flex items-center gap-1.5"><CheckCircle2 aria-hidden className="size-4 text-emerald-400" />{t}</li>
                 ))}
               </ul>
             </Reveal>
             <Reveal delay={0.15}><HeroDemo /></Reveal>
           </div>
-          <div className="border-y border-line/70 bg-white/60">
-            <p className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 py-5 text-sm text-ink-soft">
-              <span className="font-semibold text-ink">Built with</span>
+          <div className="border-t border-white/10">
+            <p className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 py-5 text-sm text-slate-400">
+              <span className="font-semibold text-white">Built with</span>
               <span>PayPal Orders, Payments &amp; Log in with PayPal</span>
               <span aria-hidden className="hidden sm:inline">·</span><span>Google Gemini</span>
               <span aria-hidden className="hidden sm:inline">·</span><span>KERNEL cloud browsers</span>
             </p>
           </div>
-        </section>
+        </HeroShell>
 
         {/* Problem */}
         <section className="mx-auto w-full max-w-6xl space-y-12 px-4 py-20">
@@ -145,19 +137,9 @@ export function Landing() {
         </section>
 
         {/* Features */}
-        <section id="features" className="mx-auto w-full max-w-6xl scroll-mt-20 space-y-12 px-4 py-20">
-          <SectionTitle eyebrow="Features" title="Verification a careful client would do, in two minutes" />
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map(({ Icon, title, text }, i) => (
-              <Reveal key={title} delay={(i % 3) * 0.08}>
-                <Card className="group h-full space-y-3 p-6 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(15,23,42,0.18)]">
-                  <span className="grid size-12 place-items-center rounded-xl bg-brand-soft text-brand transition-colors group-hover:bg-brand group-hover:text-white"><Icon aria-hidden className="size-6" /></span>
-                  <h3 className="text-lg font-semibold">{title}</h3>
-                  <p className="leading-relaxed text-ink-soft">{text}</p>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
+        <section id="features" className="mx-auto w-full max-w-6xl scroll-mt-20 space-y-12 px-4 py-24">
+          <SectionTitle eyebrow="Features" title="Everything a careful client would check" text="Hover, drag and click: each tile is a small live version of what Verifund does on every submission." />
+          <Bento />
         </section>
 
         {/* Proof report preview */}
@@ -165,7 +147,7 @@ export function Landing() {
           <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 lg:grid-cols-2 lg:items-center">
             <Reveal className="space-y-5">
               <p className="text-sm font-semibold uppercase tracking-wider text-brand">Proof report</p>
-              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Every decision comes with evidence</h2>
+              <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">Every decision comes with evidence</h2>
               <p className="text-lg leading-relaxed text-ink-soft">No black box. Each checklist item shows what the AI found, where it found it, and a screenshot. Facts like broken links and email addresses are measured by code, so they can&apos;t be hallucinated.</p>
               <ul className="space-y-2.5">
                 {["Shareable, printable report per check", "Site map with status, forms and phone fit per page", "Broken links and contact details found", "PayPal authorization and capture IDs"].map((t) => (
@@ -222,7 +204,7 @@ export function Landing() {
           <div className="mx-auto w-full max-w-6xl space-y-12 px-4">
             <Reveal className="mx-auto max-w-2xl space-y-3 text-center">
               <p className="text-sm font-semibold uppercase tracking-wider text-sky-300">Safety by design</p>
-              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">An AI that can&apos;t be talked into paying</h2>
+              <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">An AI that can&apos;t be talked into paying</h2>
             </Reveal>
             <div className="grid gap-5 sm:grid-cols-2">
               {SAFETY.map(({ title, text }, i) => (
@@ -256,7 +238,7 @@ export function Landing() {
         <section className="px-4 pb-20">
           <Reveal className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-strong px-6 py-14 text-center text-white md:px-12">
             <Bot aria-hidden className="mx-auto mb-4 size-10 text-sky-200" />
-            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Your next milestone, verified.</h2>
+            <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">Your next milestone, verified.</h2>
             <p className="mx-auto mt-3 max-w-xl text-lg text-sky-100">Post a job, fund it with PayPal, and let the AI check the work. Takes a minute to set up.</p>
             <div className="mt-8 flex justify-center">
               <form action={async () => { "use server"; await signIn("paypal", { redirectTo: "/" }); }}>
