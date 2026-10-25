@@ -8,10 +8,11 @@ const limiter = new RateLimiter(14, 480);
 const MAX_WAIT = 90_000;
 
 export class AiBusyError extends Error {
-  constructor() { super("AI is busy (free-tier limit reached). Please try again in a minute."); }
+  constructor() { super("The AI is busy right now (limit reached or overloaded). Please try again in a minute."); }
 }
 
-const isQuota = (e: unknown) => /429|RESOURCE_EXHAUSTED|quota/i.test(String(e));
+// Quota hit (429) or model overloaded (503): the other model may still answer.
+export const shouldTryOtherModel = (e: unknown) => /429|RESOURCE_EXHAUSTED|quota|503|UNAVAILABLE|overloaded/i.test(String(e));
 
 export async function generate(req: Omit<GenerateContentParameters, "model">) {
   const deadline = Date.now() + MAX_WAIT;
@@ -30,7 +31,7 @@ export async function generate(req: Omit<GenerateContentParameters, "model">) {
     try {
       return await ai.models.generateContent({ ...req, model });
     } catch (e) {
-      if (!isQuota(e)) throw e;
+      if (!shouldTryOtherModel(e)) throw e;
       exhausted.add(model);
     }
   }
