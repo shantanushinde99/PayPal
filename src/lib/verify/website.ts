@@ -57,8 +57,8 @@ const SYSTEM =
   "Mark 'pass' only with direct evidence, 'fail' when clearly missing or wrong, 'unsure' otherwise. For every item give a short " +
   "friendly reason, the evidence (a fact or short quote) and the pageUrl where you found it. Call submit_verdict when done.";
 
-const TEST_VALUES: Record<string, string> = { email: "test@proof-of-done.dev", tel: "+15555550100", url: "https://example.com", number: "1", date: "2026-01-01" };
-const TEST_TEXT = "Proof-of-Done test - please ignore";
+const TEST_VALUES: Record<string, string> = { email: "test@verifund.dev", tel: "+15555550100", url: "https://example.com", number: "1", date: "2026-01-01" };
+const TEST_TEXT = "Verifund test - please ignore";
 
 // Plain text hides structure (is that line a heading? is there a form?), so summarise it explicitly.
 // String, not a function: bundlers inject helpers (__name) that don't exist inside the page.

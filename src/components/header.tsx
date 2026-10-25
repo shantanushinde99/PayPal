@@ -6,7 +6,7 @@ export function Logo() {
   return (
     <Link href="/" className="inline-flex items-center gap-2 text-lg font-bold tracking-tight text-ink">
       <span className="grid size-8 place-items-center rounded-lg bg-brand text-white"><ShieldCheck aria-hidden className="size-5" /></span>
-      Proof-of-Done
+      Verifund
     </Link>
   );
 }

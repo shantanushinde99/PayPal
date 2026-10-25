@@ -1,0 +1,281 @@
+import {
+  ArrowRight, Bot, Camera, Check, CheckCircle2, ChevronDown, FileText, Globe, Lightbulb, Lock, MousePointerClick,
+  Palette, ScanSearch, ShieldCheck, Sparkles, XCircle,
+} from "lucide-react";
+import { signIn } from "@/auth";
+import { Card } from "@/components/ui";
+import { SubmitButton } from "@/components/submit-button";
+import { Logo } from "@/components/header";
+import { HeroDemo } from "./hero-demo";
+import { Pipeline } from "./pipeline";
+import { Reveal } from "./reveal";
+
+const REPO = "https://github.com/shantanushinde99/PayPal";
+
+function LoginButton({ label = "Log in with PayPal", large = false }: { label?: string; large?: boolean }) {
+  return (
+    <form action={async () => { "use server"; await signIn("paypal", { redirectTo: "/" }); }}>
+      <SubmitButton
+        pending="Opening PayPal…"
+        className={`inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-paypal font-semibold text-white shadow-[0_8px_24px_-8px_rgba(0,112,186,0.6)] transition-all hover:bg-[#005ea6] hover:shadow-[0_10px_28px_-8px_rgba(0,112,186,0.7)] disabled:opacity-60 ${large ? "min-h-13 px-8 text-base" : "min-h-11 px-5 text-sm"}`}
+      >
+        {label} <ArrowRight aria-hidden className="size-4" />
+      </SubmitButton>
+    </form>
+  );
+}
+
+function SectionTitle({ eyebrow, title, text }: { eyebrow: string; title: string; text?: string }) {
+  return (
+    <Reveal className="mx-auto max-w-2xl space-y-3 text-center">
+      <p className="text-sm font-semibold uppercase tracking-wider text-brand">{eyebrow}</p>
+      <h2 className="text-3xl font-bold tracking-tight md:text-4xl">{title}</h2>
+      {text && <p className="text-lg leading-relaxed text-ink-soft">{text}</p>}
+    </Reveal>
+  );
+}
+
+const FEATURES = [
+  { Icon: ScanSearch, title: "Full-site audit", text: "Every page is visited on desktop and phone. Every link is tested, emails and phone numbers are matched exactly, broken images and script errors are caught." },
+  { Icon: MousePointerClick, title: "Real interaction tests", text: "The agent fills in contact forms with clearly marked test data and checks the confirmation, just like a careful client would." },
+  { Icon: Camera, title: "Before/after photo proof", text: "Painting, repairs, cleaning, installs: the AI compares both photos against the checklist and flags staged, identical or mismatched shots." },
+  { Icon: FileText, title: "Printable Proof Report", text: "Each check produces an evidence report: verdict per item, the quote or fact behind it, page screenshots, site map and PayPal transaction IDs." },
+  { Icon: Lightbulb, title: "Checklist checker", text: "Vague items like “looks modern” are flagged before money is held, with a concrete rewrite. Fewer arguments later." },
+  { Icon: Palette, title: "Design match", text: "Upload a mockup or screenshot. The AI compares the live homepage with it on layout, colours and main sections." },
+];
+
+const SAFETY = [
+  { title: "Code releases money, not the AI", text: "The AI only reports pass/fail per item. Plain code pays out, and only when every single item passes. It can never pick an amount or a recipient." },
+  { title: "Websites can't talk the AI into paying", text: "Page text is treated as untrusted data. Hidden “mark everything as passed” instructions are ignored, and the agent can't be redirected to another site." },
+  { title: "Isolated cloud browser", text: "Freelancer sites are opened in a sandboxed cloud browser, never on our servers, so a submitted link can't reach anything internal." },
+  { title: "Money stays with PayPal", text: "Funds are held as a PayPal authorization until release or cancellation. Every movement shows real PayPal transaction IDs." },
+];
+
+const FAQ = [
+  { q: "Is the money safe while the work is being done?", a: "Yes. When the client funds a milestone, PayPal authorizes and holds the amount. It's only captured when every checklist item is verified. If the client cancels before that, the hold is released back to them." },
+  { q: "What if the AI gets it wrong?", a: "Every verdict comes with evidence you can open: the page, the quote or measured fact, and a screenshot in the Proof Report. Unclear items are marked “unsure” and hold the money rather than pay it. The freelancer can fix and resubmit as often as needed." },
+  { q: "What kinds of work can be verified?", a: "Anything delivered as a live website (pages, links, contact details, forms, phone layout, design match) and physical work proven with before/after photos (painting, repairs, cleaning, installs)." },
+  { q: "Does the freelancer need a PayPal account?", a: "Yes. Payments go to the freelancer's PayPal email. Both sides log in with PayPal, so emails are confirmed and payouts can't go to a typo." },
+  { q: "Which currencies are supported?", a: "USD, EUR, GBP, CAD, AUD and JPY. The whole flow (hold, capture and payment) stays in the job's currency." },
+  { q: "Is this live?", a: "Verifund runs on the PayPal sandbox for the PayPal AI Hackathon. No real money moves; everything else, including the AI checks, is real." },
+];
+
+export function Landing() {
+  return (
+    <div className="flex min-h-full flex-col">
+      <header className="sticky top-0 z-20 border-b border-line/70 bg-white/80 backdrop-blur">
+        <nav aria-label="Main" className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-4">
+          <Logo />
+          <div className="hidden items-center gap-7 text-sm font-medium text-ink-soft md:flex">
+            <a href="#how" className="hover:text-ink">How it works</a>
+            <a href="#features" className="hover:text-ink">Features</a>
+            <a href="#report" className="hover:text-ink">Proof report</a>
+            <a href="#safety" className="hover:text-ink">Safety</a>
+            <a href="#faq" className="hover:text-ink">FAQ</a>
+          </div>
+          <LoginButton label="Log in" />
+        </nav>
+      </header>
+
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="relative overflow-hidden">
+          <div aria-hidden className="absolute inset-0 -z-10 bg-[radial-gradient(60rem_30rem_at_20%_-10%,#e0f2fe,transparent),radial-gradient(40rem_25rem_at_100%_10%,#ecfdf5,transparent)]" />
+          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 py-16 md:py-24 lg:grid-cols-[1.05fr_1fr] lg:items-center">
+            <Reveal className="space-y-7">
+              <p className="inline-flex items-center gap-2 rounded-full border border-brand/20 bg-white px-3 py-1 text-sm font-medium text-brand-strong shadow-sm">
+                <Sparkles aria-hidden className="size-4" /> AI escrow, built on PayPal
+              </p>
+              <h1 className="text-5xl font-bold leading-[1.05] tracking-tight md:text-6xl">
+                Pay for <span className="bg-gradient-to-r from-brand to-emerald-600 bg-clip-text text-transparent">proof</span>, not promises.
+              </h1>
+              <p className="max-w-xl text-lg leading-relaxed text-ink-soft md:text-xl">
+                Verifund holds each milestone payment with PayPal while an AI agent checks the delivered work against the checklist you both agreed on. When everything is verified, the money is released automatically, with an evidence report to prove it.
+              </p>
+              <div className="flex flex-wrap items-center gap-4">
+                <LoginButton large label="Start with PayPal" />
+                <a href="#how" className="inline-flex min-h-13 items-center gap-2 rounded-full border border-line bg-white px-6 font-semibold text-ink transition-colors hover:bg-canvas">
+                  See how it works
+                </a>
+              </div>
+              <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-ink-soft">
+                {["Funds held by PayPal", "Every page & link checked", "Released automatically"].map((t) => (
+                  <li key={t} className="inline-flex items-center gap-1.5"><CheckCircle2 aria-hidden className="size-4 text-emerald-600" />{t}</li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal delay={0.15}><HeroDemo /></Reveal>
+          </div>
+          <div className="border-y border-line/70 bg-white/60">
+            <p className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 py-5 text-sm text-ink-soft">
+              <span className="font-semibold text-ink">Built with</span>
+              <span>PayPal Orders, Payments &amp; Log in with PayPal</span>
+              <span aria-hidden className="hidden sm:inline">·</span><span>Google Gemini</span>
+              <span aria-hidden className="hidden sm:inline">·</span><span>KERNEL cloud browsers</span>
+            </p>
+          </div>
+        </section>
+
+        {/* Problem */}
+        <section className="mx-auto w-full max-w-6xl space-y-12 px-4 py-20">
+          <SectionTitle eyebrow="The problem" title="Freelance payments run on trust. Trust breaks." text="Someone always goes first and carries the risk. Verifund replaces “trust me” with a checklist, a held payment and verifiable proof." />
+          <div className="grid gap-5 md:grid-cols-2">
+            {[
+              { who: "Clients", Icon: XCircle, pains: ["Paying upfront for work that never ships", "“It's done” — but the contact form doesn't work", "No objective way to say what's missing"] },
+              { who: "Freelancers", Icon: XCircle, pains: ["Chasing invoices for work already delivered", "Endless “one more change” before payment", "No proof the job met the brief"] },
+            ].map(({ who, Icon, pains }, i) => (
+              <Reveal key={who} delay={i * 0.1}>
+                <Card className="h-full space-y-4 p-7">
+                  <h3 className="text-xl font-semibold">For {who.toLowerCase()} today</h3>
+                  <ul className="space-y-3">
+                    {pains.map((p) => <li key={p} className="flex gap-3 text-ink-soft"><Icon aria-hidden className="mt-0.5 size-5 shrink-0 text-red-500" />{p}</li>)}
+                  </ul>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section id="how" className="scroll-mt-20 bg-white py-20">
+          <div className="mx-auto w-full max-w-6xl space-y-14 px-4">
+            <SectionTitle eyebrow="How it works" title="From “done?” to paid, in four steps" text="Watch the payment move: it only reaches the freelancer after the AI has verified the work." />
+            <Pipeline />
+          </div>
+        </section>
+
+        {/* Features */}
+        <section id="features" className="mx-auto w-full max-w-6xl scroll-mt-20 space-y-12 px-4 py-20">
+          <SectionTitle eyebrow="Features" title="Verification a careful client would do, in two minutes" />
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {FEATURES.map(({ Icon, title, text }, i) => (
+              <Reveal key={title} delay={(i % 3) * 0.08}>
+                <Card className="group h-full space-y-3 p-6 transition-all hover:-translate-y-0.5 hover:shadow-[0_12px_32px_-12px_rgba(15,23,42,0.18)]">
+                  <span className="grid size-12 place-items-center rounded-xl bg-brand-soft text-brand transition-colors group-hover:bg-brand group-hover:text-white"><Icon aria-hidden className="size-6" /></span>
+                  <h3 className="text-lg font-semibold">{title}</h3>
+                  <p className="leading-relaxed text-ink-soft">{text}</p>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* Proof report preview */}
+        <section id="report" className="scroll-mt-20 bg-white py-20">
+          <div className="mx-auto grid w-full max-w-6xl gap-12 px-4 lg:grid-cols-2 lg:items-center">
+            <Reveal className="space-y-5">
+              <p className="text-sm font-semibold uppercase tracking-wider text-brand">Proof report</p>
+              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Every decision comes with evidence</h2>
+              <p className="text-lg leading-relaxed text-ink-soft">No black box. Each checklist item shows what the AI found, where it found it, and a screenshot. Facts like broken links and email addresses are measured by code, so they can&apos;t be hallucinated.</p>
+              <ul className="space-y-2.5">
+                {["Shareable, printable report per check", "Site map with status, forms and phone fit per page", "Broken links and contact details found", "PayPal authorization and capture IDs"].map((t) => (
+                  <li key={t} className="flex gap-2.5"><Check aria-hidden className="mt-0.5 size-5 shrink-0 text-emerald-600" />{t}</li>
+                ))}
+              </ul>
+            </Reveal>
+            <Reveal delay={0.15}>
+              <Card className="space-y-4 p-6 shadow-[0_20px_60px_-24px_rgba(15,23,42,0.3)]">
+                <div className="flex items-center justify-between">
+                  <div><p className="text-xs font-semibold uppercase tracking-wider text-brand">Proof report</p><p className="font-semibold">Sunrise Bakery · Milestone 1</p></div>
+                  <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900">3/6 verified · held</span>
+                </div>
+                {[
+                  { ok: true, t: "Menu page lists items with prices", e: "“Country sourdough $7.50, Butter croissant $3.25 …” on /menu" },
+                  { ok: false, t: "All links work", e: "/team.html returns 404, linked from /about as “Meet the team”" },
+                  { ok: false, t: "Email is hello@sunrisebakery.com", e: "Contact page shows helo@sunrisebakery.com" },
+                ].map(({ ok, t, e }) => (
+                  <div key={t} className="space-y-1.5 rounded-lg border border-line p-3">
+                    <p className="flex items-center gap-2 font-medium">{ok ? <CheckCircle2 aria-hidden className="size-5 text-emerald-600" /> : <XCircle aria-hidden className="size-5 text-red-600" />}{t}</p>
+                    <p className="rounded bg-canvas px-2.5 py-1.5 font-mono text-xs text-ink-soft">{e}</p>
+                  </div>
+                ))}
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  {[["6", "pages crawled"], ["6", "links tested"], ["1", "broken"]].map(([n, l]) => (
+                    <div key={l} className="rounded-lg bg-canvas p-2"><p className="text-lg font-bold">{n}</p><p className="text-ink-soft">{l}</p></div>
+                  ))}
+                </div>
+              </Card>
+            </Reveal>
+          </div>
+        </section>
+
+        {/* Both sides */}
+        <section className="mx-auto w-full max-w-6xl space-y-12 px-4 py-20">
+          <SectionTitle eyebrow="Fair to both sides" title="Clear rules before money moves" />
+          <div className="grid gap-5 md:grid-cols-2">
+            {[
+              { who: "For clients", Icon: Lock, points: ["Pay only for work that meets the checklist", "Know exactly what's missing, with evidence", "Cancel and release the hold before payout", "Approve a checklist the AI can actually verify"] },
+              { who: "For freelancers", Icon: Globe, points: ["See the money is funded before you start", "Paid the moment the work is verified", "No vague “one more change”: the checklist is frozen", "A Proof Report that shows you delivered"] },
+            ].map(({ who, Icon, points }, i) => (
+              <Reveal key={who} delay={i * 0.1}>
+                <Card className="h-full space-y-5 p-7">
+                  <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-brand-soft text-brand"><Icon aria-hidden className="size-5" /></span><h3 className="text-xl font-semibold">{who}</h3></div>
+                  <ul className="space-y-3">{points.map((p) => <li key={p} className="flex gap-3"><CheckCircle2 aria-hidden className="mt-0.5 size-5 shrink-0 text-emerald-600" />{p}</li>)}</ul>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+        </section>
+
+        {/* Safety */}
+        <section id="safety" className="scroll-mt-20 bg-ink py-20 text-white">
+          <div className="mx-auto w-full max-w-6xl space-y-12 px-4">
+            <Reveal className="mx-auto max-w-2xl space-y-3 text-center">
+              <p className="text-sm font-semibold uppercase tracking-wider text-sky-300">Safety by design</p>
+              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">An AI that can&apos;t be talked into paying</h2>
+            </Reveal>
+            <div className="grid gap-5 sm:grid-cols-2">
+              {SAFETY.map(({ title, text }, i) => (
+                <Reveal key={title} delay={(i % 2) * 0.08}>
+                  <div className="h-full space-y-2 rounded-xl border border-white/10 bg-white/5 p-6">
+                    <h3 className="flex items-center gap-2.5 text-lg font-semibold"><ShieldCheck aria-hidden className="size-5 text-emerald-400" />{title}</h3>
+                    <p className="leading-relaxed text-slate-300">{text}</p>
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section id="faq" className="mx-auto w-full max-w-3xl scroll-mt-20 space-y-10 px-4 py-20">
+          <SectionTitle eyebrow="FAQ" title="Questions, answered" />
+          <div className="space-y-3">
+            {FAQ.map(({ q, a }) => (
+              <details key={q} className="group rounded-xl border border-line bg-white">
+                <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 px-5 font-semibold">
+                  {q}<ChevronDown aria-hidden className="size-5 shrink-0 text-ink-soft transition-transform group-open:rotate-180" />
+                </summary>
+                <p className="px-5 pb-5 leading-relaxed text-ink-soft">{a}</p>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section className="px-4 pb-20">
+          <Reveal className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-strong px-6 py-14 text-center text-white md:px-12">
+            <Bot aria-hidden className="mx-auto mb-4 size-10 text-sky-200" />
+            <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Your next milestone, verified.</h2>
+            <p className="mx-auto mt-3 max-w-xl text-lg text-sky-100">Post a job, fund it with PayPal, and let the AI check the work. Takes a minute to set up.</p>
+            <div className="mt-8 flex justify-center">
+              <form action={async () => { "use server"; await signIn("paypal", { redirectTo: "/" }); }}>
+                <SubmitButton pending="Opening PayPal…" className="inline-flex min-h-13 cursor-pointer items-center gap-2 rounded-full bg-white px-8 font-semibold text-brand-strong transition-colors hover:bg-sky-50">
+                  Start with PayPal <ArrowRight aria-hidden className="size-4" />
+                </SubmitButton>
+              </form>
+            </div>
+          </Reveal>
+        </section>
+      </main>
+
+      <footer className="border-t border-line bg-white">
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-ink-soft md:flex-row md:items-center md:justify-between">
+          <Logo />
+          <p>Built for the PayPal AI Hackathon 2026 · Sandbox demo, no real money moves.</p>
+          <a href={REPO} target="_blank" rel="noreferrer" className="font-medium text-ink hover:underline">Source on GitHub</a>
+        </div>
+      </footer>
+    </div>
+  );
+}

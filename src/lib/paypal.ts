@@ -49,7 +49,7 @@ export async function createOrder(o: {
       ...(o.payeeEmail && { payee: { email_address: o.payeeEmail } }),
     }],
     payment_source: { paypal: { experience_context: {
-      brand_name: "Proof-of-Done",
+      brand_name: "Verifund",
       user_action: "PAY_NOW",
       shipping_preference: "NO_SHIPPING",
       return_url: o.returnUrl,
@@ -76,7 +76,7 @@ export async function voidAuthorization(authorizationId: string) {
 
 export async function createPayout(p: { milestoneId: string; email: string; amountMinor: number; currency: string; note: string }) {
   const res = await pp("/v1/payments/payouts", {
-    sender_batch_header: { sender_batch_id: requestId(p.milestoneId, "payout"), email_subject: "You've been paid via Proof-of-Done" },
+    sender_batch_header: { sender_batch_id: requestId(p.milestoneId, "payout"), email_subject: "You've been paid via Verifund" },
     items: [{
       recipient_type: "EMAIL",
       receiver: p.email,
