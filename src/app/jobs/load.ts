@@ -25,9 +25,12 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
   const subIds = latest.flatMap((s) => (s ? [s.id] : []));
   const verdicts = subIds.length ? await db.select().from(verdictItems).where(inArray(verdictItems.submissionId, subIds)) : [];
 
-  const person = (u?: { email: string; displayName: string | null; company: string | null; headline: string | null }) =>
-    ({ name: u?.displayName ?? u?.email ?? job.freelancerEmail, email: u?.email ?? job.freelancerEmail, detail: u?.company ?? u?.headline ?? null });
-  const cols = { email: users.email, displayName: users.displayName, company: users.company, headline: users.headline };
+  // Demo accounts' login emails are internal; don't show them.
+  const person = (u?: { email: string; displayName: string | null; company: string | null; headline: string | null; isDemo: boolean }) => {
+    const email = u?.isDemo ? "" : (u?.email ?? job.freelancerEmail);
+    return { name: u?.displayName ?? (email || "Freelancer"), email, detail: u?.company ?? u?.headline ?? null };
+  };
+  const cols = { email: users.email, displayName: users.displayName, company: users.company, headline: users.headline, isDemo: users.isDemo };
   const [client] = await db.select(cols).from(users).where(eq(users.id, job.clientId));
   const [free] = job.freelancerId ? await db.select(cols).from(users).where(eq(users.id, job.freelancerId)) : [];
 

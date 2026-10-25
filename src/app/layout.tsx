@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en" className={`${plex.variable} ${grotesk.variable} h-full scroll-smooth antialiased`}>
+    <html lang="en" data-scroll-behavior="smooth" className={`${plex.variable} ${grotesk.variable} h-full scroll-smooth antialiased`}>
       <body className="min-h-full flex flex-col font-sans">{children}</body>
     </html>
   );

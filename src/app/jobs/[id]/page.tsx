@@ -291,7 +291,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
               return (
                 <div key={label as string}><dt className="text-ink-soft">{label as string}</dt>
                   <dd className="font-medium break-all">{person.name}{person.detail && <span className="font-normal text-ink-soft"> · {person.detail}</span>}</dd>
-                  {person.name !== person.email && <dd className="text-xs text-ink-soft break-all">{person.email}</dd>}
+                  {person.email && person.name !== person.email && <dd className="text-xs text-ink-soft break-all">{person.email}</dd>}
                 </div>
               );
             })}

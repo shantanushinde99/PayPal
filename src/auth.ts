@@ -1,4 +1,6 @@
 import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
+import { demoAuthorize } from "@/lib/demo";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { env } from "@/lib/env";
@@ -27,10 +29,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     profile(p: PayPalProfile) {
       return { id: p.user_id, name: p.name, email: verifiedEmail(p) };
     },
-  }],
+  },
+  // Judges' demo: only ever creates fresh demo users, or follows a signed side-switch ticket.
+  Credentials({ id: "demo", name: "Demo", credentials: { switch: {} }, authorize: (c) => demoAuthorize(c ?? {}) }),
+  ],
   callbacks: {
     signIn: ({ user }) => Boolean(user.email), // unverified PayPal email → no login
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
+      if (user && account?.provider === "demo") {
+        token.uid = user.id;
+        token.email = user.email;
+        return token;
+      }
       if (user?.email) {
         const email = user.email.toLowerCase();
         const [row] = await db.insert(users).values({ email, name: user.name })

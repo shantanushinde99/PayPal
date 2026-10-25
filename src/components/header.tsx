@@ -4,6 +4,7 @@ import { signOut } from "@/auth";
 import type { User } from "@/db/schema";
 import { currentView } from "@/lib/view";
 import { setView } from "@/app/view/actions";
+import { DemoBanner } from "@/components/demo-banner";
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
@@ -51,6 +52,7 @@ export async function Header({ user }: { user?: User }) {
           </div>
         )}
       </div>
+      {user && <DemoBanner user={user} />}
     </header>
   );
 }

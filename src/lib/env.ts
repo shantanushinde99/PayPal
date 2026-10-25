@@ -15,5 +15,9 @@ export const env = z
     APP_URL: z.url(),
     // direct: capture pays the freelancer (works everywhere). payouts: capture to platform, then Payouts API (needs Payouts eligibility).
     PAYOUT_MODE: z.enum(["direct", "payouts"]).default("direct"),
+    // Optional demo for judges: shared sandbox accounts. No DEMO_PAYOUT_EMAIL → demo hidden.
+    DEMO_PAYOUT_EMAIL: z.email().optional(),
+    DEMO_BUYER_EMAIL: z.email().optional(),
+    DEMO_BUYER_PASSWORD: z.string().optional(),
   })
   .parse(process.env);

@@ -1,7 +1,8 @@
 import {
-  ArrowRight, Bot, Check, CheckCircle2, ChevronDown, Globe, Lock, ShieldCheck, Sparkles, XCircle,
+  ArrowRight, Bot, FlaskConical, Check, CheckCircle2, ChevronDown, Globe, Lock, ShieldCheck, Sparkles, XCircle,
 } from "lucide-react";
 import { signIn } from "@/auth";
+import { startDemo } from "@/app/demo/actions";
 import { Card } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { Logo } from "@/components/header";
@@ -52,7 +53,7 @@ const FAQ = [
   { q: "Is this live?", a: "Verifund runs on the PayPal sandbox for the PayPal AI Hackathon. No real money moves; everything else, including the AI checks, is real." },
 ];
 
-export function Landing() {
+export function Landing({ demo = false }: { demo?: boolean }) {
   return (
     <div className="flex min-h-full flex-col">
       <ScrollProgress />
@@ -86,10 +87,19 @@ export function Landing() {
               </p>
               <div className="flex flex-wrap items-center gap-4">
                 <LoginButton large label="Start with PayPal" />
-                <a href="#how" className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/20 px-6 font-semibold text-white transition-colors hover:bg-white/10">
-                  See how it works
-                </a>
+                {demo ? (
+                  <form action={startDemo}>
+                    <SubmitButton pending="Preparing your demo…" className="inline-flex min-h-13 cursor-pointer items-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 font-semibold text-white backdrop-blur transition-colors hover:bg-white/20">
+                      <FlaskConical aria-hidden className="size-4" /> Try the live demo
+                    </SubmitButton>
+                  </form>
+                ) : (
+                  <a href="#how" className="inline-flex min-h-13 items-center gap-2 rounded-full border border-white/20 px-6 font-semibold text-white transition-colors hover:bg-white/10">
+                    See how it works
+                  </a>
+                )}
               </div>
+              {demo && <p className="text-sm text-slate-400">No account needed: the demo gives you a private client and freelancer to play both sides.</p>}
               <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
                 {["Funds held by PayPal", "Every page & link checked", "Released automatically"].map((t) => (
                   <li key={t} className="inline-flex items-center gap-1.5"><CheckCircle2 aria-hidden className="size-4 text-emerald-400" />{t}</li>
