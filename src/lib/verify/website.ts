@@ -69,6 +69,9 @@ export async function checkWebsite(o: {
   log: (message: string, image?: string) => Promise<void>;
 }): Promise<VerdictItem[]> {
   const ids = o.checklist.map((c) => c.id);
+  const site = new URL(o.url);
+  const start = site.origin + site.pathname; // drop query/fragment: no room for injected text
+  let opened = false;
   const kb = await kernel.browsers.create({ stealth: true, timeout_seconds: 300 });
   const browser = await chromium.connectOverCDP(kb.cdp_ws_url);
   try {
@@ -78,7 +81,7 @@ export async function checkWebsite(o: {
 
     const contents: Content[] = [{
       role: "user",
-      parts: [{ text: `Website: ${o.url}\nChecklist (use these ids):\n${o.checklist.map((c) => `- ${c.id}: ${c.requirement}`).join("\n")}` }],
+      parts: [{ text: `Website (only this site may be visited): "${start}"\nChecklist (use these ids):\n${o.checklist.map((c) => `- ${c.id}: ${c.requirement}`).join("\n")}` }],
     }];
 
     for (let step = 0; step < MAX_STEPS; step++) {
@@ -95,6 +98,10 @@ export async function checkWebsite(o: {
       const args = (call.args ?? {}) as Record<string, string>;
 
       if (call.name === "submit_verdict") {
+        if (!opened) {
+          await o.log("The AI tried to decide without opening the site. Ignoring that verdict.");
+          return normalizeVerdict(ids, []);
+        }
         return normalizeVerdict(ids, (call.args as { items?: unknown[] })?.items ?? []);
       }
 
@@ -102,8 +109,11 @@ export async function checkWebsite(o: {
       const extra: Part[] = [];
       try {
         if (call.name === "open_page") {
-          await o.log(`Opening ${args.url}`);
-          await page.goto(args.url, { waitUntil: "domcontentloaded", timeout: 20_000 });
+          const target = new URL(args.url, start);
+          if (target.origin !== site.origin) throw new Error(`Only pages on ${site.origin} can be opened`);
+          await o.log(`Opening ${target}`);
+          const res = await page.goto(target.toString(), { waitUntil: "domcontentloaded", timeout: 20_000 });
+          opened ||= !res || res.ok();
           result = await pageText(page);
         } else if (call.name === "click") {
           await o.log(`Clicking "${args.text}"`);

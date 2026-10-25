@@ -2,12 +2,12 @@ import NextAuth from "next-auth";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { env } from "@/lib/env";
+import { verifiedEmail, type PayPalProfile } from "@/lib/paypal-identity";
 
 declare module "next-auth" {
   interface Session { user: { id: string; email: string; name?: string | null } }
 }
 
-type PayPalProfile = { user_id: string; name?: string; emails?: { value: string; primary?: boolean }[] };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
@@ -25,11 +25,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     token: `${env.PAYPAL_API_BASE}/v1/oauth2/token`,
     userinfo: `${env.PAYPAL_API_BASE}/v1/identity/oauth2/userinfo?schema=paypalv1.1`,
     profile(p: PayPalProfile) {
-      const email = (p.emails?.find((e) => e.primary) ?? p.emails?.[0])?.value;
-      return { id: p.user_id, name: p.name, email };
+      return { id: p.user_id, name: p.name, email: verifiedEmail(p) };
     },
   }],
   callbacks: {
+    signIn: ({ user }) => Boolean(user.email), // unverified PayPal email → no login
     async jwt({ token, user }) {
       if (user?.email) {
         const email = user.email.toLowerCase();

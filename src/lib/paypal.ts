@@ -83,6 +83,6 @@ export async function createPayout(p: { milestoneId: string; email: string; amou
       note: p.note,
       sender_item_id: p.milestoneId,
     }],
-  });
+  }, requestId(p.milestoneId, "payout"));
   return res.batch_header.payout_batch_id as string;
 }

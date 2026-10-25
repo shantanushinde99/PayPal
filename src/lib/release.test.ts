@@ -34,3 +34,13 @@ describe("shouldRelease", () => {
     expect(shouldRelease([])).toBe(false);
   });
 });
+
+describe("normalizeVerdict duplicates", () => {
+  it("keeps the worst status when the AI repeats an item", () => {
+    const v = normalizeVerdict(["a"], [
+      { checklistItemId: "a", status: "fail", reason: "missing" },
+      { checklistItemId: "a", status: "pass", reason: "ok" },
+    ]);
+    expect(v[0].status).toBe("fail");
+  });
+});

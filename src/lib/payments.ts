@@ -29,10 +29,17 @@ export async function startFunding(milestoneId: string) {
 }
 
 export async function completeFunding(milestoneId: string, orderId: string) {
-  const { m, j } = await load(milestoneId);
+  const { m, j, state } = await load(milestoneId);
   if (m.orderId !== orderId) throw new Error("Order does not match milestone");
+  if (state === "funded" && m.authorizationId) return j.id; // return URL reloaded
+  if (state !== "funding") throw new Error(`Milestone is ${state}, not awaiting payment`);
   const authorizationId = await authorizeOrder(orderId, milestoneId);
-  await transition(milestoneId, "funding", "funded", { authorizationId });
+  try {
+    await transition(milestoneId, "funding", "funded", { authorizationId });
+  } catch (e) {
+    await voidAuthorization(authorizationId); // cancelled meanwhile: don't leave money held
+    throw e;
+  }
   await logPayment(milestoneId, `${formatMoney(m.amountMinor, j.currency)} on hold (authorization ${authorizationId})`);
   return j.id;
 }
@@ -40,17 +47,18 @@ export async function completeFunding(milestoneId: string, orderId: string) {
 export async function cancel(milestoneId: string) {
   const { m, state } = await load(milestoneId);
   if (!canTransition(state, "cancelled")) throw new Error(`Can't cancel a milestone that is ${state}`);
+  await transition(milestoneId, state, "cancelled"); // first, so a racing resubmit can't run on a voided hold
   if (m.authorizationId) {
     await voidAuthorization(m.authorizationId);
     await logPayment(milestoneId, "Hold released to client (authorization voided)");
   }
-  await transition(milestoneId, state, "cancelled");
 }
 
 // Called only after shouldRelease() passed and the milestone is in `passed`.
 // ponytail: payout right after capture; review window comes in the Stage 4 plan.
 export async function release(milestoneId: string) {
-  const { m, j } = await load(milestoneId);
+  const { m, j, state } = await load(milestoneId);
+  if (state !== "passed") throw new Error(`Only verified milestones can be paid (this one is ${state})`);
   const captureId = m.captureId ?? await captureAuthorization(m.authorizationId!, milestoneId);
   await db.update(milestones).set({ captureId }).where(eq(milestones.id, milestoneId));
   await logPayment(milestoneId, `Captured ${formatMoney(m.amountMinor, j.currency)} (capture ${captureId})`);
