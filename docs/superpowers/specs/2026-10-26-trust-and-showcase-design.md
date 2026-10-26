@@ -118,3 +118,21 @@ README/license/video/demo accounts (2d). If time runs short, cut from the end of
 
 ## Out of scope
 Multi-instance scaling, real-money (live) PayPal, MCP/agentic-commerce server (not chosen), mobile app.
+
+## Spike results (2026-10-26)
+1. **KERNEL live view: interactive, opens without login.** Not embedded (anyone with the URL could drive the
+   AI's browser). Live progress stays the screenshot activity log. **Replay works**: `replays.start/stop`,
+   MP4 via `replays.download` (~44 KB for 7 s). KERNEL's `replay_view_url` lives on the session VM and dies
+   with it → download the MP4 after each check and serve it from our app to the job's parties.
+   Bonus: `network.allowed_hosts` per session → use it to keep the checker on the freelancer's site.
+2. **Webhooks**: none registered yet. Registering one on the PayPal app needs the owner's go-ahead
+   (blocked by the permission system). Code treats webhooks as an extra confirmation path; existing
+   return-page + live capture lookup keep working without them.
+3. **Disputes**: `GET /v1/customer/disputes` works with platform credentials (0 disputes). Direct-mode payee
+   is the freelancer's account (confirmed on capture `7C747580724373807`), so platform visibility of a buyer
+   dispute must be checked with one real sandbox dispute → build both paths (auto evidence + evidence pack).
+4. **Funding sources (JS SDK, sandbox, US)**: PayPal ✓, Pay Later ✓, Card ✓ for both `authorize` and `capture`;
+   **Venmo ✗ for both** (account/sandbox eligibility, not intent). Render Venmo only when `isEligible()`.
+5. **AG Studio**: `ag-studio-react` 3.0.0 (published 2026-09-16, React 19). Agent framework = `AgStudioAiModule`
+   + `createAiHarness(api, { adapter })`; adapter is ours (`executeTurn` → `{ stream of AG-UI events, complete }`).
+   Gemini adapter calls our own server route (key stays server-side); per-user rate limit needed.
