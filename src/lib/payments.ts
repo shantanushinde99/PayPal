@@ -43,6 +43,10 @@ export async function completeFunding(milestoneId: string, orderId: string) {
   try {
     await transition(milestoneId, "funding", "funded", { authorizationId });
   } catch (e) {
+    // The webhook and the browser can both complete the same order; the PayPal request id makes them
+    // share one authorization, so the loser must not void the winner's hold.
+    const [now] = await db.select().from(milestones).where(eq(milestones.id, milestoneId));
+    if (now?.authorizationId === authorizationId) return j.id;
     await voidAuthorization(authorizationId); // cancelled meanwhile: don't leave money held
     throw e;
   }

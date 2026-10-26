@@ -53,6 +53,15 @@ describe("completeFunding", () => {
     await expect(completeFunding(m.id, "O1")).resolves.toBe(m.jobId);
     expect(pp.authorizeOrder).not.toHaveBeenCalled();
   });
+  it("keeps the hold when the webhook and the browser complete funding at the same time", async () => {
+    const m = await seedMilestone({ state: "funding", orderId: "O1" });
+    pp.authorizeOrder.mockImplementation(() => new Promise((r) => setTimeout(() => r("AUTH"), 50))); // both pass the state check
+    const results = await Promise.allSettled([completeFunding(m.id, "O1"), completeFunding(m.id, "O1")]);
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect(pp.voidAuthorization).not.toHaveBeenCalled();
+    expect(await stateOf(m.id)).toBe("funded");
+    expect((await db.select().from(payments).where(eq(payments.milestoneId, m.id))).length).toBe(1);
+  });
 });
 
 describe("direct mode (milestone funded straight to the freelancer)", () => {
