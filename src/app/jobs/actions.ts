@@ -14,7 +14,7 @@ import { toMinor, CURRENCIES } from "@/lib/money";
 import { parsePhoto } from "@/lib/photo-input";
 import { withDesignItem } from "@/lib/design-reference";
 import { lintChecklist } from "@/lib/lint-checklist";
-import { startFunding, cancel, release } from "@/lib/payments";
+import { startFunding, completeFunding, cancel, release } from "@/lib/payments";
 import { runVerification } from "@/lib/verify/run";
 import type { MilestoneState } from "@/lib/milestone-state";
 
@@ -80,7 +80,30 @@ async function requireClientOf(milestoneId: string) {
 
 export async function fundMilestone(milestoneId: string) {
   await requireClientOf(milestoneId);
-  redirect(await startFunding(milestoneId));
+  redirect((await startFunding(milestoneId)).approveUrl);
+}
+
+// JS SDK buttons (PayPal, Pay Later, Venmo): same server-side order and authorization, approved in a popup.
+export async function createFundingOrder(milestoneId: string): Promise<{ orderId?: string; error?: string }> {
+  try {
+    await requireClientOf(milestoneId);
+    return { orderId: (await startFunding(milestoneId, { sdk: true })).orderId };
+  } catch (e) {
+    console.error("create order failed", milestoneId, e);
+    return { error: "PayPal couldn't start the payment. Nothing was charged; please try again." };
+  }
+}
+
+export async function approveFunding(milestoneId: string, orderId: string): Promise<{ error?: string }> {
+  try {
+    const { j } = await requireClientOf(milestoneId);
+    await completeFunding(milestoneId, orderId);
+    revalidatePath(`/jobs/${j.id}`);
+    return {};
+  } catch (e) {
+    console.error("approve failed", milestoneId, e);
+    return { error: "We couldn't confirm the PayPal approval. Nothing was charged twice; refresh the page to see the status." };
+  }
 }
 
 export async function cancelMilestone(milestoneId: string) {

@@ -20,7 +20,7 @@ const logPayment = (milestoneId: string, message: string) =>
 const record = (milestoneId: string, kind: string, amountMinor: number, currency: string, paypalId: string) =>
   db.insert(payments).values({ milestoneId, kind, amountMinor, currency, paypalId });
 
-export async function startFunding(milestoneId: string) {
+export async function startFunding(milestoneId: string, { sdk = false } = {}) {
   const { m, j, state } = await load(milestoneId);
   if (j.status !== "accepted") throw new Error("The freelancer hasn't accepted this job yet.");
   const direct = m.state === "draft" ? env.PAYOUT_MODE === "direct" : m.direct; // mode is fixed at first funding
@@ -28,10 +28,10 @@ export async function startFunding(milestoneId: string) {
     milestoneId, title: `${j.title} — ${m.title}`, amountMinor: m.amountMinor, currency: j.currency,
     returnUrl: `${env.APP_URL}/api/paypal/return?milestone=${milestoneId}`,
     cancelUrl: `${env.APP_URL}/jobs/${j.id}`,
-    payeeEmail: direct ? j.freelancerEmail : undefined,
+    payeeEmail: direct ? j.freelancerEmail : undefined, sdk,
   });
   await transition(milestoneId, state, "funding", { orderId, direct });
-  return approveUrl;
+  return { orderId, approveUrl };
 }
 
 export async function completeFunding(milestoneId: string, orderId: string) {

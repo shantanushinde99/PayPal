@@ -39,7 +39,9 @@ async function pp(path: string, body?: unknown, reqId?: string): Promise<any> {
 
 export async function createOrder(o: {
   milestoneId: string; title: string; amountMinor: number; currency: string; returnUrl: string; cancelUrl: string; payeeEmail?: string;
+  sdk?: boolean; // approved in the JS SDK popup (PayPal, Pay Later, Venmo) instead of a redirect
 }) {
+  const experience = { brand_name: "Verifund", user_action: "PAY_NOW", shipping_preference: "NO_SHIPPING" };
   const order = await pp("/v2/checkout/orders", {
     intent: "AUTHORIZE",
     purchase_units: [{
@@ -48,15 +50,12 @@ export async function createOrder(o: {
       amount: { currency_code: o.currency, value: toPayPalValue(o.amountMinor, o.currency) },
       ...(o.payeeEmail && { payee: { email_address: o.payeeEmail } }),
     }],
-    payment_source: { paypal: { experience_context: {
-      brand_name: "Verifund",
-      user_action: "PAY_NOW",
-      shipping_preference: "NO_SHIPPING",
-      return_url: o.returnUrl,
-      cancel_url: o.cancelUrl,
-    } } },
+    // The SDK picks the funding source, so it gets a source-neutral context.
+    ...(o.sdk
+      ? { application_context: experience }
+      : { payment_source: { paypal: { experience_context: { ...experience, return_url: o.returnUrl, cancel_url: o.cancelUrl } } } }),
   });
-  const approveUrl = order.links.find((l: { rel: string }) => l.rel === "payer-action").href;
+  const approveUrl = order.links.find((l: { rel: string }) => l.rel === "payer-action" || l.rel === "approve")?.href;
   return { orderId: order.id as string, approveUrl: approveUrl as string };
 }
 

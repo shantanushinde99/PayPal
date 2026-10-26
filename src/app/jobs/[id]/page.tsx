@@ -9,7 +9,7 @@ import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { saveMilestone, fundMilestone, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease } from "../actions";
+import { saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
@@ -19,6 +19,15 @@ import { DisputePanel, StatementForm } from "./dispute-panel";
 import { acceptDecisionAction, askJudgeAction, openDisputeAction, rejectDecisionAction, respondDisputeAction } from "../dispute-actions";
 import { shareMinor } from "@/lib/money";
 import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
+import { PayPalButtons } from "./paypal-buttons";
+import { env } from "@/lib/env";
+
+// JS SDK for authorize-intent buttons. In direct mode the freelancer is the payee, so the SDK must know them.
+const sdkSrc = (currency: string, payee?: string) => `${env.PAYPAL_WEB_BASE}/sdk/js?${new URLSearchParams({
+  "client-id": env.PAYPAL_CLIENT_ID, intent: "authorize", currency, components: "buttons,messages", "enable-funding": "venmo,paylater",
+  ...(payee && { "merchant-id": payee }),
+  ...(env.PAYPAL_API_BASE.includes("sandbox") && { "buyer-country": "US" }), // sandbox only: show US funding options
+})}`;
 import { CopyId } from "@/components/copy-id";
 import { ownershipCode, ownershipMeta } from "@/lib/ownership";
 
@@ -210,9 +219,19 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
 
         <div className="flex flex-wrap items-center gap-3">
           {isClient && job.status === "accepted" && ["draft", "funding"].includes(m.state) && (
-            <form action={fundMilestone.bind(null, m.id)}>
-              <SubmitButton className={btn.paypal} pending="Opening PayPal…"><Lock aria-hidden className="size-4" /> Fund {formatMoney(m.amountMinor, job.currency)} with PayPal</SubmitButton>
-            </form>
+            <div className="w-full space-y-2">
+              <p className="inline-flex items-center gap-1.5 font-semibold"><Lock aria-hidden className="size-4" /> Fund {formatMoney(m.amountMinor, job.currency)}: it stays on hold until the work is verified</p>
+              <PayPalButtons
+                src={sdkSrc(job.currency, (m.state === "draft" ? env.PAYOUT_MODE === "direct" : m.direct) ? job.freelancerEmail : undefined)}
+                amount={toPayPalValue(m.amountMinor, job.currency)}
+                showMessage={job.currency === "USD"}
+                createOrder={createFundingOrder.bind(null, m.id)}
+                onApprove={approveFunding.bind(null, m.id)}
+              />
+              <form action={fundMilestone.bind(null, m.id)}>
+                <button className="cursor-pointer text-xs text-ink-soft underline hover:text-ink">Or pay on PayPal&apos;s website</button>
+              </form>
+            </div>
           )}
           {isClient && ["draft", "funding", "funded", "failed"].includes(m.state) && (
             <form action={cancelMilestone.bind(null, m.id)}>
