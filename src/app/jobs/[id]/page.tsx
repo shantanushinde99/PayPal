@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
-  Hourglass, MailOpen, ReceiptText, Scale, Send, Wallet, XCircle,
+  Hourglass, MailOpen, PlayCircle, ReceiptText, Scale, Send, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
@@ -91,6 +91,12 @@ function Proof({ m }: { m: M }) {
             </figure>
           ))}
         </div>
+      )}
+      {m.hasReplay && (
+        <details className="group">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><PlayCircle aria-hidden className="size-4" /> Watch the AI check this site</summary>
+          <video controls preload="metadata" src={`/api/replays/${s.id}`} className="mt-2 w-full rounded-lg border border-line bg-black">Your browser can&apos;t play this recording.</video>
+        </details>
       )}
       <Link href={`/jobs/${m.jobId}/report/${s.id}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><FileText aria-hidden className="size-4" /> View proof report</Link>
     </div>

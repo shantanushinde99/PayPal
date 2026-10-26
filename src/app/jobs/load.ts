@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { jobRole } from "@/lib/job-access";
-import { jobs, milestones, checklistItems, submissions, verdictItems, events, users, disputes } from "@/db/schema";
+import { jobs, milestones, checklistItems, submissions, verdictItems, events, users, disputes, replays } from "@/db/schema";
 
 export async function loadJobForUser(jobId: string, user: { id: string; email: string }) {
   const [job] = await db.select().from(jobs).where(eq(jobs.id, jobId));
@@ -24,6 +24,7 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
   const latest = ids.map((id) => subs.find((s) => s.milestoneId === id));
   const subIds = latest.flatMap((s) => (s ? [s.id] : []));
   const verdicts = subIds.length ? await db.select().from(verdictItems).where(inArray(verdictItems.submissionId, subIds)) : [];
+  const recorded = subIds.length ? (await db.select({ id: replays.submissionId }).from(replays).where(inArray(replays.submissionId, subIds))).map((r) => r.id) : [];
   const ds = ids.length ? await db.select().from(disputes).where(inArray(disputes.milestoneId, ids)) : [];
 
   // Demo accounts' login emails are internal; don't show them.
@@ -41,6 +42,7 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
       ...m,
       checklist: items.filter((c) => c.milestoneId === m.id),
       submission: latest[i],
+      hasReplay: recorded.includes(latest[i]?.id ?? ""),
       verdict: verdicts.filter((v) => v.submissionId === latest[i]?.id),
       events: evs.filter((e) => e.milestoneId === m.id),
       dispute: ds.find((d) => d.milestoneId === m.id) ?? null,

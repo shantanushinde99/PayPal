@@ -1,4 +1,6 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, customType } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
 export const users = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
@@ -71,6 +73,13 @@ export const submissions = pgTable("submissions", {
   report: jsonb(), // SiteReport for website proofs
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
+
+// KERNEL's recording of a website check (MP4). Its own table so page loads never pull the bytes.
+export const replays = pgTable("replays", {
+  submissionId: uuid().primaryKey().references(() => submissions.id, { onDelete: "cascade" }),
+  mp4: bytea().notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
 
 export const verdictItems = pgTable("verdict_items", {
   id: uuid().primaryKey().defaultRandom(),

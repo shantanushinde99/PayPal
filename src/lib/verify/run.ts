@@ -1,6 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { checklistItems, events, jobs, milestones, submissions, users, verdictItems } from "@/db/schema";
+import { checklistItems, events, jobs, milestones, replays, submissions, users, verdictItems } from "@/db/schema";
 import { checkPhotos } from "@/lib/verify/photo";
 import { parsePhoto } from "@/lib/photo-input";
 import { transition } from "@/db/transition";
@@ -54,7 +54,10 @@ async function verify(milestoneId: string, submissionId: string): Promise<false 
       const [j] = await db.select({ freelancerId: jobs.freelancerId }).from(jobs).where(eq(jobs.id, m.jobId));
       const url = sub.url ?? "";
       const ownerCode = isSampleSite(url) ? undefined : ownershipCode(j.freelancerId ?? "none");
-      const r = await checkWebsite({ url, checklist, reference, ownerCode, log });
+      const r = await checkWebsite({
+        url, checklist, reference, ownerCode, log,
+        onReplay: async (mp4) => { await db.insert(replays).values({ submissionId, mp4 }).onConflictDoNothing(); },
+      });
       verdict = r.verdict;
       await db.update(submissions).set({ report: r.report }).where(eq(submissions.id, submissionId));
     }
