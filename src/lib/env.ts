@@ -15,6 +15,7 @@ export const env = z
     APP_URL: z.url(),
     // direct: capture pays the freelancer (works everywhere). payouts: capture to platform, then Payouts API (needs Payouts eligibility).
     PAYOUT_MODE: z.enum(["direct", "payouts"]).default("direct"),
+    AG_STUDIO_LICENSE_KEY: z.string().optional(), // without it AG Studio runs as a trial (watermark off localhost)
     PAYPAL_WEBHOOK_ID: z.string().optional(), // from scripts/register-webhook.mts; unset = webhooks ignored
     REVIEW_WINDOW_MINUTES: z.coerce.number().int().optional(), // after an AI pass, before auto-release
     // Optional demo for judges: shared sandbox accounts. No DEMO_PAYOUT_EMAIL → demo hidden.
