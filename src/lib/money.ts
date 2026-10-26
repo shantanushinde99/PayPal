@@ -14,3 +14,10 @@ export const payoutMinor = (amountMinor: number) => amountMinor - Math.round((am
 
 export const formatMoney = (minor: number, currency: string) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency }).format(minor / 10 ** decimals(currency));
+
+// The freelancer's part of an amount for a 0-100 share (dispute decisions). The AI proposes the share;
+// only this code turns it into money.
+export function shareMinor(amountMinor: number, share: number) {
+  if (!Number.isInteger(share) || share < 0 || share > 100) throw new Error(`Invalid share ${share}`);
+  return Math.round((amountMinor * share) / 100);
+}

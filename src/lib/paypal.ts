@@ -65,8 +65,10 @@ export async function authorizeOrder(orderId: string, milestoneId: string): Prom
   return order.purchase_units[0].payments.authorizations[0].id;
 }
 
-export async function captureAuthorization(authorizationId: string, milestoneId: string): Promise<string> {
-  const cap = await pp(`/v2/payments/authorizations/${authorizationId}/capture`, { final_capture: true }, requestId(milestoneId, "capture"));
+// Full capture, or a partial one: with final_capture the rest of the hold goes back to the buyer.
+export async function captureAuthorization(authorizationId: string, milestoneId: string, part?: { amountMinor: number; currency: string }): Promise<string> {
+  const body = { final_capture: true, ...(part && { amount: { currency_code: part.currency, value: toPayPalValue(part.amountMinor, part.currency) } }) };
+  const cap = await pp(`/v2/payments/authorizations/${authorizationId}/capture`, body, requestId(milestoneId, part ? `capture-${part.amountMinor}` : "capture"));
   return cap.id;
 }
 
