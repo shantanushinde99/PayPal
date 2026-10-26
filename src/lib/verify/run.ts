@@ -1,18 +1,19 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { checklistItems, events, milestones, submissions, verdictItems } from "@/db/schema";
+import { checklistItems, events, jobs, milestones, submissions, users, verdictItems } from "@/db/schema";
 import { checkPhotos } from "@/lib/verify/photo";
 import { parsePhoto } from "@/lib/photo-input";
 import { transition } from "@/db/transition";
 import { checkWebsite } from "@/lib/verify/website";
 import { shouldRelease, type VerdictItem } from "@/lib/release";
 import { release } from "@/lib/payments";
+import { reviewWindowMinutes } from "@/lib/review-window";
 import { friendlyError } from "@/lib/friendly-error";
 
 const logError = (milestoneId: string, message: string) => db.insert(events).values({ milestoneId, kind: "error", message });
 
 export async function runVerification(milestoneId: string, submissionId: string) {
-  let passed = false;
+  let passed: false | "window" | "now" = false;
   try {
     passed = await verify(milestoneId, submissionId);
   } catch (e) {
@@ -23,7 +24,7 @@ export async function runVerification(milestoneId: string, submissionId: string)
     await transition(milestoneId, "verifying", "failed", { failReason: reason });
     return;
   }
-  if (!passed) return;
+  if (passed !== "now") return; // the review window releases it later, unless the client disputes
   try {
     await release(milestoneId);
   } catch (e) {
@@ -32,7 +33,7 @@ export async function runVerification(milestoneId: string, submissionId: string)
   }
 }
 
-async function verify(milestoneId: string, submissionId: string): Promise<boolean> {
+async function verify(milestoneId: string, submissionId: string): Promise<false | "window" | "now"> {
   const log = async (message: string, image?: string) => {
     await db.insert(events).values({ milestoneId, kind: "agent", message, image });
   };
@@ -67,9 +68,17 @@ async function verify(milestoneId: string, submissionId: string): Promise<boolea
     await transition(milestoneId, "verifying", "failed", { failReason });
     return false;
   }
-  await transition(milestoneId, "verifying", "passed");
-  await log("All requirements met. Releasing payment…");
-  return true;
+  const [client] = await db.select({ isDemo: users.isDemo }).from(jobs).innerJoin(users, eq(users.id, jobs.clientId)).where(eq(jobs.id, m.jobId));
+  const minutes = reviewWindowMinutes(client);
+  if (minutes === 0) {
+    await transition(milestoneId, "verifying", "passed");
+    await log("All requirements met. Releasing payment…");
+    return "now";
+  }
+  await transition(milestoneId, "verifying", "passed", { releaseAt: new Date(Date.now() + minutes * 60_000) });
+  const when = minutes >= 120 ? `${Math.round(minutes / 60)} hours` : `${minutes} minute${minutes === 1 ? "" : "s"}`;
+  await log(`All requirements met. The payment releases automatically in ${when} unless the client disputes it.`);
+  return "window";
 }
 
 // Checks run in-process via after(); a restart kills them. Called once at server start.

@@ -137,3 +137,11 @@ export async function declineInvitation(jobId: string, formData: FormData) {
   await declineJob(jobId, user, String(formData.get("note") ?? ""));
   revalidatePath(`/jobs/${jobId}`);
 }
+
+// Client is happy with the verified work: pay now instead of waiting for the review window.
+export async function approveRelease(milestoneId: string) {
+  const { m, j } = await requireClientOf(milestoneId);
+  if (m.state !== "passed") throw new Error("Only verified work can be approved.");
+  await release(milestoneId);
+  revalidatePath(`/jobs/${j.id}`);
+}
