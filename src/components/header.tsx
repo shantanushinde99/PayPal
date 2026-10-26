@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, LogOut, UserRound, Users, Wallet } from "lucide-react";
+import { Gavel, LayoutDashboard, LogOut, UserRound, Users, Wallet } from "lucide-react";
 import { LogoMark } from "@/components/logo-mark";
 import { signOut } from "@/auth";
 import type { User } from "@/db/schema";
@@ -30,6 +30,7 @@ export async function Header({ user }: { user?: User }) {
             <Link href="/" className={link}><LayoutDashboard aria-hidden className="size-4" /><span className="hidden md:inline">Dashboard</span></Link>
             {view === "client" && <Link href="/freelancers" className={link}><Users aria-hidden className="size-4" /><span className="hidden md:inline">Freelancers</span></Link>}
             <Link href="/wallet" className={link}><Wallet aria-hidden className="size-4" /><span className="hidden md:inline">Wallet</span></Link>
+            {user.isAdmin && <Link href="/admin/disputes" className={link}><Gavel aria-hidden className="size-4" /><span className="hidden md:inline">Disputes</span></Link>}
             <Link href="/profile" className={link}><UserRound aria-hidden className="size-4" /><span className="hidden md:inline">Profile</span></Link>
           </nav>
         )}
