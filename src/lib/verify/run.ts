@@ -9,6 +9,7 @@ import { shouldRelease, type VerdictItem } from "@/lib/release";
 import { release } from "@/lib/payments";
 import { reviewWindowMinutes } from "@/lib/review-window";
 import { friendlyError } from "@/lib/friendly-error";
+import { isSampleSite, ownershipCode } from "@/lib/ownership";
 
 const logError = (milestoneId: string, message: string) => db.insert(events).values({ milestoneId, kind: "error", message });
 
@@ -50,7 +51,10 @@ async function verify(milestoneId: string, submissionId: string): Promise<false 
       verdict = await checkPhotos({ before: parsePhoto(sub.beforePhoto ?? ""), after: parsePhoto(sub.afterPhoto ?? ""), checklist, log });
     } else {
       const reference = m.referenceImage ? parsePhoto(m.referenceImage) : undefined;
-      const r = await checkWebsite({ url: sub.url ?? "", checklist, reference, log });
+      const [j] = await db.select({ freelancerId: jobs.freelancerId }).from(jobs).where(eq(jobs.id, m.jobId));
+      const url = sub.url ?? "";
+      const ownerCode = isSampleSite(url) ? undefined : ownershipCode(j.freelancerId ?? "none");
+      const r = await checkWebsite({ url, checklist, reference, ownerCode, log });
       verdict = r.verdict;
       await db.update(submissions).set({ report: r.report }).where(eq(submissions.id, submissionId));
     }

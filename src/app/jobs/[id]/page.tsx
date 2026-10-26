@@ -19,6 +19,8 @@ import { DisputePanel, StatementForm } from "./dispute-panel";
 import { acceptDecisionAction, askJudgeAction, openDisputeAction, rejectDecisionAction, respondDisputeAction } from "../dispute-actions";
 import { shareMinor } from "@/lib/money";
 import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
+import { CopyId } from "@/components/copy-id";
+import { ownershipCode, ownershipMeta } from "@/lib/ownership";
 
 type Loaded = Awaited<ReturnType<typeof loadJobForUser>>;
 type M = Loaded["milestones"][number];
@@ -123,6 +125,20 @@ function Activity({ m }: { m: M }) {
   );
 }
 
+function OwnershipHint({ code }: { code: string }) {
+  return (
+    <details className="text-sm text-ink-soft">
+      <summary className="cursor-pointer font-medium text-ink">Prove you own the site (required)</summary>
+      <div className="mt-2 space-y-1.5">
+        <p>Add this tag inside the homepage <code>&lt;head&gt;</code>:</p>
+        <CopyId value={ownershipMeta(code)} label="Copy verification tag" />
+        <p>or upload a file <code>.well-known/verifund.txt</code> containing <CopyId value={code} label="Copy verification code" /></p>
+        <p className="text-xs">Verifund&apos;s sample sites are exempt.</p>
+      </div>
+    </details>
+  );
+}
+
 function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: boolean }) {
   const { job, role } = data;
   const isClient = role === "client";
@@ -205,11 +221,14 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             {m.proofType === "photo" ? (
               <PhotoProofForm action={submitProof.bind(null, m.id)} />
             ) : (
-              <form action={submitProof.bind(null, m.id)} className="flex flex-col gap-3 sm:flex-row">
-                <label htmlFor={`url-${m.id}`} className="sr-only">Website URL</label>
-                <input id={`url-${m.id}`} name="url" type="url" required placeholder="https://your-site.com" defaultValue={m.submission?.url ?? undefined} className={field} />
-                <SubmitButton className={`${btn.primary} shrink-0`} pending="Submitting…"><Send aria-hidden className="size-4" /> Submit for AI check</SubmitButton>
-              </form>
+              <>
+                <form action={submitProof.bind(null, m.id)} className="flex flex-col gap-3 sm:flex-row">
+                  <label htmlFor={`url-${m.id}`} className="sr-only">Website URL</label>
+                  <input id={`url-${m.id}`} name="url" type="url" required placeholder="https://your-site.com" defaultValue={m.submission?.url ?? undefined} className={field} />
+                  <SubmitButton className={`${btn.primary} shrink-0`} pending="Submitting…"><Send aria-hidden className="size-4" /> Submit for AI check</SubmitButton>
+                </form>
+                <OwnershipHint code={ownershipCode(job.freelancerId ?? "none")} />
+              </>
             )}
           </div>
         )}

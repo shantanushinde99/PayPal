@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { generate } from "@/lib/gemini";
 import { normalizeVerdict, type VerdictItem } from "@/lib/release";
 import type { Photo } from "@/lib/photo-input";
+import { OWNERSHIP_JS, ownershipMeta } from "@/lib/ownership";
 import { auditSite } from "./site-audit";
 import { sameSite, summarizeReport, type SiteReport } from "./site-facts";
 
@@ -105,6 +106,7 @@ export async function checkWebsite(o: {
   url: string;
   checklist: { id: string; requirement: string }[];
   reference?: Photo;
+  ownerCode?: string; // the freelancer's code; undefined skips the check (sample sites)
   log: (message: string, image?: string) => Promise<void>;
 }): Promise<WebsiteCheck> {
   const ids = o.checklist.map((c) => c.id);
@@ -126,6 +128,18 @@ export async function checkWebsite(o: {
       await o.log(reason);
       return { report, verdict: ids.map((id) => ({ checklistItemId: id, status: "fail", reason, evidence: reason, pageUrl: start })) };
     }
+
+    // Proves the freelancer controls the site: measured by code in the browser, never by the AI.
+    if (o.ownerCode) {
+      await page.goto(start, { waitUntil: "domcontentloaded", timeout: 20_000 }).catch(() => {});
+      const found = (await page.evaluate(OWNERSHIP_JS(o.ownerCode)).catch(() => "")) as string;
+      if (!found) {
+        const reason = `Add your verification code to prove you own this site: put ${ownershipMeta(o.ownerCode)} in the homepage <head>, or a file .well-known/verifund.txt containing ${o.ownerCode}.`;
+        await o.log("Site ownership not confirmed: the verification code is missing.");
+        return { report, verdict: ids.map((id) => ({ checklistItemId: id, status: "fail", reason, evidence: "No verification code found", pageUrl: start })) };
+      }
+      await o.log(`Site ownership confirmed (${found}).`);
+    } else await o.log("Verifund sample site: ownership check skipped.");
 
     const parts: Part[] = [{ text: `Website: "${start}" (only this site may be visited)\nChecklist (use these ids):\n${
       o.checklist.map((c) => `- ${c.id}: ${c.requirement}`).join("\n")}\n\n${summarizeReport(report)}` }];
