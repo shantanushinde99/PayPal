@@ -12,6 +12,8 @@
 
 </div>
 
+<p align="center"><img src="docs/images/landing.jpg" alt="Verifund landing page" width="900"></p>
+
 ---
 
 ## The problem
@@ -50,6 +52,33 @@ The AI never touches money directly. It only produces verdicts and a 0–100 sha
 - **Clients only pay for verified work.** Money moves only when every agreed item passes, or when a dispute is decided.
 - **Escrow becomes practical for small jobs.** Verification takes about two minutes and costs very little, so escrow makes sense for a $50 milestone, not just a $50,000 contract.
 - **Fewer, faster disputes.** A shared checklist and a [Proof Report](#features) with screenshots and recordings replace "he said, she said". When there is disagreement, the AI Judge proposes a fair split in seconds, and a human handles only the escalated cases.
+
+## Screenshots
+
+Screenshots of the app running on the PayPal sandbox.
+
+<table>
+<tr>
+<td width="50%"><b>1. Fund with PayPal, Pay Later or Venmo</b><br>The client sees exactly what the AI will check, then funds. The money is held by PayPal, not paid.<br><img src="docs/images/fund-paypal-buttons.jpg" alt="Funding a milestone with PayPal and Venmo buttons"></td>
+<td width="50%"><b>2. Verified and paid</b><br>Every checklist item passed, so PayPal captured the payment to the freelancer. The capture is "Confirmed by PayPal".<br><img src="docs/images/job-verified-paid.jpg" alt="Milestone verified and paid with PayPal transaction ids"></td>
+</tr>
+<tr>
+<td><b>3. Proof Report</b><br>Evidence for each checklist item, with the page it was found on and a screenshot. It can be printed or saved as a PDF.<br><img src="docs/images/proof-report.jpg" alt="Proof report with per-item evidence and screenshots"></td>
+<td><b>4. AI Judge resolves a dispute</b><br>Gemini weighed the checklist, the evidence and both statements and proposed 75% to the freelancer. That would be a partial capture of $300, with $100 going back to the client.<br><img src="docs/images/dispute-ai-judge.jpg" alt="Dispute panel with the AI Judge's 75% decision"></td>
+</tr>
+<tr>
+<td><b>5. Wallet</b><br>Every PayPal movement with its transaction ID: held, paid, released.<br><img src="docs/images/wallet.jpg" alt="Wallet with payment history"></td>
+<td><b>6. Insights (AG Studio + Gemini)</b><br>Money in escrow, payments over time, checklist results. Ask the AI assistant for new charts.<br><img src="docs/images/insights.jpg" alt="Insights dashboard built with AG Studio"></td>
+</tr>
+<tr>
+<td><b>7. Dashboard</b><br>Jobs, holds and payouts at a glance.<br><img src="docs/images/dashboard.jpg" alt="Client dashboard"></td>
+<td><b>8. A check that failed</b><br>Missing items are explained, the money stays on hold, and the freelancer can fix the work and resubmit.<br><img src="docs/images/job-failed-check.jpg" alt="Milestone with changes needed"></td>
+</tr>
+<tr>
+<td><b>9. Freelancer directory</b><br>Profiles with skills and a verified track record.<br><img src="docs/images/freelancer-directory.jpg" alt="Freelancer directory"></td>
+<td><b>10. Demo site: Northwind Travel</b><br>The hardest test site: a menu built by JavaScript, tours loaded from a data file, and a 3-step booking form.<br><img src="docs/images/demo-site-hard.jpg" alt="Northwind Travel demo site"></td>
+</tr>
+</table>
 
 ---
 
