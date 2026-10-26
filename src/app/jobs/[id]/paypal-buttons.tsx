@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 type Funding = "PAYPAL" | "PAYLATER" | "VENMO";
 type Sdk = {
   FUNDING: Record<Funding, string>;
-  Buttons: (o: object) => { isEligible: () => boolean; render: (el: HTMLElement) => Promise<void>; close?: () => void };
+  Buttons: (o: object) => { isEligible: () => boolean; render: (el: HTMLElement) => Promise<void>; close?: () => Promise<void> };
   Messages?: (o: object) => { render: (el: HTMLElement) => Promise<void> };
 };
 
@@ -37,6 +37,9 @@ export function PayPalButtons({ src, amount, showMessage, createOrder, onApprove
   const message = useRef<HTMLDivElement>(null);
   const [error, setError] = useState("");
   const [status, setStatus] = useState<"loading" | "ready" | "failed">("loading");
+  // Server actions get new identities on every refresh; keep the latest without re-rendering PayPal's iframes.
+  const latest = useRef({ createOrder, onApprove });
+  useEffect(() => { latest.current = { createOrder, onApprove }; });
 
   useEffect(() => {
     let stale = false;
@@ -50,12 +53,12 @@ export function PayPalButtons({ src, amount, showMessage, createOrder, onApprove
           style: { height: 44, shape: "pill" },
           createOrder: async () => {
             setError("");
-            const r = await createOrder();
+            const r = await latest.current.createOrder();
             if (!r.orderId) throw new Error(r.error ?? "PayPal couldn't start the payment.");
             return r.orderId;
           },
           onApprove: async (data: { orderID: string }) => {
-            const r = await onApprove(data.orderID);
+            const r = await latest.current.onApprove(data.orderID);
             if (r.error) setError(r.error);
             router.refresh();
           },
@@ -70,8 +73,9 @@ export function PayPalButtons({ src, amount, showMessage, createOrder, onApprove
       if (!stale) setStatus("ready");
       if (showMessage && message.current && pp.Messages) pp.Messages({ amount, placement: "payment" }).render(message.current).catch(() => {});
     }).catch(() => !stale && setStatus("failed"));
-    return () => { stale = true; buttons.forEach((b) => b.close?.()); };
-  }, [src, amount, showMessage, createOrder, onApprove, router]);
+    // close() rejects if PayPal is mid-flow; swallow it so the SDK doesn't report an unhandled error.
+    return () => { stale = true; buttons.forEach((b) => Promise.resolve(b.close?.()).catch(() => {})); };
+  }, [src, amount, showMessage, router]);
 
   return (
     <div className="w-full max-w-sm space-y-2">
