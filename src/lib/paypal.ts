@@ -39,7 +39,9 @@ async function pp(path: string, body?: unknown, reqId?: string): Promise<any> {
 
 export async function createOrder(o: {
   milestoneId: string; title: string; amountMinor: number; currency: string; returnUrl: string; cancelUrl: string; payeeEmail?: string;
+  sdk?: boolean; // approved in the JS SDK popup (PayPal, Pay Later, Venmo) instead of a redirect
 }) {
+  const experience = { brand_name: "Verifund", user_action: "PAY_NOW", shipping_preference: "NO_SHIPPING" };
   const order = await pp("/v2/checkout/orders", {
     intent: "AUTHORIZE",
     purchase_units: [{
@@ -48,15 +50,12 @@ export async function createOrder(o: {
       amount: { currency_code: o.currency, value: toPayPalValue(o.amountMinor, o.currency) },
       ...(o.payeeEmail && { payee: { email_address: o.payeeEmail } }),
     }],
-    payment_source: { paypal: { experience_context: {
-      brand_name: "Verifund",
-      user_action: "PAY_NOW",
-      shipping_preference: "NO_SHIPPING",
-      return_url: o.returnUrl,
-      cancel_url: o.cancelUrl,
-    } } },
+    // The SDK picks the funding source, so it gets a source-neutral context.
+    ...(o.sdk
+      ? { application_context: experience }
+      : { payment_source: { paypal: { experience_context: { ...experience, return_url: o.returnUrl, cancel_url: o.cancelUrl } } } }),
   });
-  const approveUrl = order.links.find((l: { rel: string }) => l.rel === "payer-action").href;
+  const approveUrl = order.links.find((l: { rel: string }) => l.rel === "payer-action" || l.rel === "approve")?.href;
   return { orderId: order.id as string, approveUrl: approveUrl as string };
 }
 
@@ -65,8 +64,10 @@ export async function authorizeOrder(orderId: string, milestoneId: string): Prom
   return order.purchase_units[0].payments.authorizations[0].id;
 }
 
-export async function captureAuthorization(authorizationId: string, milestoneId: string): Promise<string> {
-  const cap = await pp(`/v2/payments/authorizations/${authorizationId}/capture`, { final_capture: true }, requestId(milestoneId, "capture"));
+// Full capture, or a partial one: with final_capture the rest of the hold goes back to the buyer.
+export async function captureAuthorization(authorizationId: string, milestoneId: string, part?: { amountMinor: number; currency: string }): Promise<string> {
+  const body = { final_capture: true, ...(part && { amount: { currency_code: part.currency, value: toPayPalValue(part.amountMinor, part.currency) } }) };
+  const cap = await pp(`/v2/payments/authorizations/${authorizationId}/capture`, body, requestId(milestoneId, part ? `capture-${part.amountMinor}` : "capture"));
   return cap.id;
 }
 
@@ -108,4 +109,26 @@ export async function captureStatus(captureId: string): Promise<string | null> {
   } catch {
     return null; // a confirmation badge is optional; never break the page
   }
+}
+
+// PayPal checks the signature for us; the webhook id ties it to our registration.
+export async function verifyWebhookSignature(h: Headers, event: unknown): Promise<boolean> {
+  if (!env.PAYPAL_WEBHOOK_ID) return false;
+  const r = await pp("/v1/notifications/verify-webhook-signature", {
+    auth_algo: h.get("paypal-auth-algo"), cert_url: h.get("paypal-cert-url"), transmission_id: h.get("paypal-transmission-id"),
+    transmission_sig: h.get("paypal-transmission-sig"), transmission_time: h.get("paypal-transmission-time"),
+    webhook_id: env.PAYPAL_WEBHOOK_ID, webhook_event: event,
+  });
+  return r?.verification_status === "SUCCESS";
+}
+
+// Answers a buyer's PayPal dispute with our proof. Only works when the platform can see the dispute
+// (in direct mode it belongs to the freelancer's account, so this usually fails and we show guidance).
+export async function provideDisputeEvidence(disputeId: string, notes: string) {
+  const form = new FormData();
+  form.append("input", new Blob([JSON.stringify({ evidences: [{ evidence_type: "PROOF_OF_FULFILLMENT", notes: notes.slice(0, 2000) }] })], { type: "application/json" }));
+  const res = await fetch(`${env.PAYPAL_API_BASE}/v1/customer/disputes/${encodeURIComponent(disputeId)}/provide-evidence`, {
+    method: "POST", headers: { Authorization: `Bearer ${await accessToken()}` }, body: form,
+  });
+  if (!res.ok) throw new Error(`PayPal provide-evidence failed: ${res.status} ${await res.text()}`);
 }

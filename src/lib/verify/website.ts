@@ -5,6 +5,7 @@ import { env } from "@/lib/env";
 import { generate } from "@/lib/gemini";
 import { normalizeVerdict, type VerdictItem } from "@/lib/release";
 import type { Photo } from "@/lib/photo-input";
+import { OWNERSHIP_JS, ownershipMeta } from "@/lib/ownership";
 import { auditSite } from "./site-audit";
 import { sameSite, summarizeReport, type SiteReport } from "./site-facts";
 
@@ -99,18 +100,38 @@ async function fillAndSubmit(page: Page, formIndex: number) {
   await page.waitForTimeout(2_500);
 }
 
+const MAX_REPLAY_BYTES = 20_000_000;
+
+// The replay URL dies with the KERNEL session, so keep the MP4 ourselves. It is finalised shortly after stop.
+async function saveReplay(sessionId: string, replayId: string, save: (mp4: Buffer) => Promise<void>) {
+  await kernel.browsers.replays.stop(replayId, { id_or_name: sessionId });
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const mp4 = Buffer.from(await (await kernel.browsers.replays.download(replayId, { id_or_name: sessionId })).arrayBuffer());
+      if (mp4.length > MAX_REPLAY_BYTES) return console.error("replay too large, not kept", mp4.length);
+      return await save(mp4);
+    } catch (e) {
+      if (attempt === 3) throw e;
+      await new Promise((r) => setTimeout(r, 2_000));
+    }
+  }
+}
+
 export type WebsiteCheck = { verdict: VerdictItem[]; report: SiteReport };
 
 export async function checkWebsite(o: {
   url: string;
   checklist: { id: string; requirement: string }[];
   reference?: Photo;
+  ownerCode?: string; // the freelancer's code; undefined skips the check (sample sites)
+  onReplay?: (mp4: Buffer) => Promise<void>; // KERNEL's recording, also after a failed check
   log: (message: string, image?: string) => Promise<void>;
 }): Promise<WebsiteCheck> {
   const ids = o.checklist.map((c) => c.id);
   const site = new URL(o.url);
   const start = site.origin + site.pathname; // drop query/fragment: no room for injected text
   const kb = await kernel.browsers.create({ stealth: true, timeout_seconds: 600 });
+  const replay = o.onReplay ? await kernel.browsers.replays.start(kb.session_id, {}).catch((e) => void console.error("replay start failed", e)) : undefined;
   const browser = await chromium.connectOverCDP(kb.cdp_ws_url);
   try {
     const context = browser.contexts()[0] ?? (await browser.newContext());
@@ -126,6 +147,18 @@ export async function checkWebsite(o: {
       await o.log(reason);
       return { report, verdict: ids.map((id) => ({ checklistItemId: id, status: "fail", reason, evidence: reason, pageUrl: start })) };
     }
+
+    // Proves the freelancer controls the site: measured by code in the browser, never by the AI.
+    if (o.ownerCode) {
+      await page.goto(start, { waitUntil: "domcontentloaded", timeout: 20_000 }).catch(() => {});
+      const found = (await page.evaluate(OWNERSHIP_JS(o.ownerCode)).catch(() => "")) as string;
+      if (!found) {
+        const reason = `Add your verification code to prove you own this site: put ${ownershipMeta(o.ownerCode)} in the homepage <head>, or a file .well-known/verifund.txt containing ${o.ownerCode}.`;
+        await o.log("Site ownership not confirmed: the verification code is missing.");
+        return { report, verdict: ids.map((id) => ({ checklistItemId: id, status: "fail", reason, evidence: "No verification code found", pageUrl: start })) };
+      }
+      await o.log(`Site ownership confirmed (${found}).`);
+    } else await o.log("Verifund sample site: ownership check skipped.");
 
     const parts: Part[] = [{ text: `Website: "${start}" (only this site may be visited)\nChecklist (use these ids):\n${
       o.checklist.map((c) => `- ${c.id}: ${c.requirement}`).join("\n")}\n\n${summarizeReport(report)}` }];
@@ -206,6 +239,7 @@ export async function checkWebsite(o: {
     await o.log("Ran out of steps before finishing.");
     return { report, verdict: normalizeVerdict(ids, []) };
   } finally {
+    if (replay) await saveReplay(kb.session_id, replay.replay_id, o.onReplay!).catch((e) => console.error("replay save failed", e));
     await browser.close().catch(() => {});
     await kernel.browsers.deleteByID(kb.session_id).catch(() => {});
   }

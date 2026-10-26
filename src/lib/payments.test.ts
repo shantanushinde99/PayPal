@@ -8,7 +8,7 @@ const pp = vi.hoisted(() => ({
   createOrder: vi.fn(), authorizeOrder: vi.fn(), captureAuthorization: vi.fn(), voidAuthorization: vi.fn(), createPayout: vi.fn(),
 }));
 vi.mock("@/lib/paypal", () => pp);
-import { release, cancel, completeFunding, startFunding } from "./payments";
+import { release, cancel, completeFunding, startFunding, settle } from "./payments";
 
 const stateOf = async (id: string) => (await db.select().from(milestones).where(eq(milestones.id, id)))[0].state;
 
@@ -52,6 +52,15 @@ describe("completeFunding", () => {
     const m = await seedMilestone({ state: "funded", orderId: "O1", authorizationId: "AUTH" });
     await expect(completeFunding(m.id, "O1")).resolves.toBe(m.jobId);
     expect(pp.authorizeOrder).not.toHaveBeenCalled();
+  });
+  it("keeps the hold when the webhook and the browser complete funding at the same time", async () => {
+    const m = await seedMilestone({ state: "funding", orderId: "O1" });
+    pp.authorizeOrder.mockImplementation(() => new Promise((r) => setTimeout(() => r("AUTH"), 50))); // both pass the state check
+    const results = await Promise.allSettled([completeFunding(m.id, "O1"), completeFunding(m.id, "O1")]);
+    expect(results.map((r) => r.status)).toEqual(["fulfilled", "fulfilled"]);
+    expect(pp.voidAuthorization).not.toHaveBeenCalled();
+    expect(await stateOf(m.id)).toBe("funded");
+    expect((await db.select().from(payments).where(eq(payments.milestoneId, m.id))).length).toBe(1);
   });
 });
 
@@ -104,5 +113,45 @@ describe("payment records", () => {
     await expect(release(m.id)).rejects.toThrow();
     await release(m.id);
     expect((await kinds(m.id)).map((k) => k[0])).toEqual(["captured", "payout"]);
+  });
+});
+
+describe("settle (dispute outcomes)", () => {
+  const rows = async (id: string) => (await db.select().from(payments).where(eq(payments.milestoneId, id))).map((p) => [p.kind, p.amountMinor]);
+  const get = async (id: string) => (await db.select().from(milestones).where(eq(milestones.id, id)))[0];
+  it("pays everything on a 100% decision", async () => {
+    const m = await seedMilestone({ state: "disputed", authorizationId: "A1", direct: true });
+    await settle(m.id, "disputed", 100);
+    expect(pp.captureAuthorization).toHaveBeenCalledWith("A1", m.id);
+    expect(await get(m.id)).toMatchObject({ state: "paid_out", capturedMinor: 1000 });
+    expect(await rows(m.id)).toEqual([["paid", 1000]]);
+  });
+  it("returns everything to the client on a 0% decision", async () => {
+    const m = await seedMilestone({ state: "disputed", authorizationId: "A2", direct: true });
+    await settle(m.id, "disputed", 0);
+    expect(pp.captureAuthorization).not.toHaveBeenCalled();
+    expect(pp.voidAuthorization).toHaveBeenCalledWith("A2");
+    expect(await get(m.id)).toMatchObject({ state: "cancelled", capturedMinor: 0 });
+    expect(await rows(m.id)).toEqual([["void", 1000]]);
+  });
+  it("splits: captures the freelancer's share and returns the rest", async () => {
+    const m = await seedMilestone({ state: "disputed", authorizationId: "A3", direct: true });
+    await settle(m.id, "disputed", 60);
+    expect(pp.captureAuthorization).toHaveBeenCalledWith("A3", m.id, { amountMinor: 600, currency: "USD" });
+    expect(await get(m.id)).toMatchObject({ state: "paid_out", capturedMinor: 600 });
+    expect((await rows(m.id)).sort()).toEqual([["paid", 600], ["void", 400]]);
+  });
+  it("pays out the freelancer's share minus the fee in payouts mode", async () => {
+    const m = await seedMilestone({ state: "disputed", authorizationId: "A4", direct: false });
+    await settle(m.id, "disputed", 50);
+    expect(pp.createPayout).toHaveBeenCalledWith(expect.objectContaining({ amountMinor: 475 }));
+  });
+  it("refuses to settle from the wrong state or with a bad share, and moves no money", async () => {
+    const m = await seedMilestone({ state: "funded", authorizationId: "A5" });
+    await expect(settle(m.id, "disputed", 50)).rejects.toThrow();
+    const d = await seedMilestone({ state: "disputed", authorizationId: "A6" });
+    await expect(settle(d.id, "disputed", 101)).rejects.toThrow();
+    expect(pp.captureAuthorization).not.toHaveBeenCalled();
+    expect(pp.voidAuthorization).not.toHaveBeenCalled();
   });
 });

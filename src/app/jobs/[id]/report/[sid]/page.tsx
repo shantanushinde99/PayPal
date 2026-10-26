@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { AlertTriangle, ArrowLeft, CheckCircle2, CircleHelp, ExternalLink, XCircle } from "lucide-react";
 import { db } from "@/db";
-import { checklistItems, submissions, verdictItems } from "@/db/schema";
+import { checklistItems, replays, submissions, verdictItems } from "@/db/schema";
 import { requireUser } from "@/lib/session";
 import { formatMoney } from "@/lib/money";
 import type { SiteReport } from "@/lib/verify/site-facts";
@@ -28,6 +28,7 @@ export default async function ProofReport({ params }: { params: Promise<{ id: st
   if (!sub || !m) notFound();
   const items = await db.select().from(checklistItems).where(eq(checklistItems.milestoneId, m.id)).orderBy(asc(checklistItems.position));
   const verdict = await db.select().from(verdictItems).where(eq(verdictItems.submissionId, sid));
+  const [recording] = await db.select({ id: replays.submissionId }).from(replays).where(eq(replays.submissionId, sid));
   const report = sub.report as SiteReport | null;
   const passed = verdict.filter((v) => v.status === "pass").length;
   const path = (u: string) => { try { const x = new URL(u); return x.pathname + x.search; } catch { return u; } };
@@ -63,6 +64,12 @@ export default async function ProofReport({ params }: { params: Promise<{ id: st
         <section className="space-y-2">
           <h2 className="text-lg font-semibold">Proof submitted</h2>
           {sub.url && <a href={sub.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 break-all font-medium text-brand underline">{sub.url}<ExternalLink aria-hidden className="size-3.5" /></a>}
+          {recording && (
+            <figure className="space-y-1 print:hidden">
+              <video controls preload="metadata" src={`/api/replays/${sid}`} className="w-full rounded-lg border border-line bg-black">Your browser can&apos;t play this recording.</video>
+              <figcaption className="text-xs text-ink-soft">Recording of the AI checking the site (KERNEL cloud browser).</figcaption>
+            </figure>
+          )}
           {sub.beforePhoto && sub.afterPhoto && (
             <div className="grid grid-cols-2 gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { milestones, submissions } from "@/db/schema";
+import { checklistItems, milestones, submissions } from "@/db/schema";
 import { seedMilestone } from "@/test/fixtures";
 
 const checkers = vi.hoisted(() => ({ checkWebsite: vi.fn(), checkPhotos: vi.fn() }));
@@ -54,5 +54,18 @@ describe("runVerification when the AI is busy", () => {
     const after = await get(m.id);
     expect(after.state).toBe("failed");
     expect(after.failReason).toMatch(/AI reviewer is busy/);
+  });
+});
+
+describe("an AI pass opens the review window instead of paying", () => {
+  it("moves to passed with a release time and does not capture", async () => {
+    const m = await seedMilestone({ state: "verifying", authorizationId: "A9", direct: true });
+    const [sub] = await db.insert(submissions).values({ milestoneId: m.id, url: "https://site.test/" }).returning();
+    const items = await db.select().from(checklistItems).where(eq(checklistItems.milestoneId, m.id));
+    checkers.checkWebsite.mockResolvedValue({ verdict: items.map((c) => ({ checklistItemId: c.id, status: "pass", reason: "ok" })), report: { pages: [] } });
+    await runVerification(m.id, sub.id);
+    const after = await get(m.id);
+    expect(after.state).toBe("passed");
+    expect(after.releaseAt!.getTime()).toBeGreaterThan(Date.now() + 60_000);
   });
 });

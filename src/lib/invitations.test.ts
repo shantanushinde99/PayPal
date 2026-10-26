@@ -47,7 +47,7 @@ describe("invitations", () => {
     await expect(startFunding(m.id)).rejects.toThrow(/hasn't accepted/);
     expect(pp.createOrder).not.toHaveBeenCalled();
     await acceptJob(job.id, free);
-    await expect(startFunding(m.id)).resolves.toBe("https://pp/approve");
+    await expect(startFunding(m.id)).resolves.toMatchObject({ approveUrl: "https://pp/approve" });
   });
   it("an edit after acceptance needs a fresh acceptance", async () => {
     const { free, job, m } = await invitedJob();

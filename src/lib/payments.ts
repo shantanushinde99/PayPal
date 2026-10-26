@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { jobs, milestones, events, payments } from "@/db/schema";
 import { transition } from "@/db/transition";
 import { env } from "@/lib/env";
-import { payoutMinor, formatMoney } from "@/lib/money";
+import { payoutMinor, formatMoney, shareMinor } from "@/lib/money";
 import { canTransition, type MilestoneState } from "@/lib/milestone-state";
 import { createOrder, authorizeOrder, captureAuthorization, voidAuthorization, createPayout } from "@/lib/paypal";
 
@@ -20,7 +20,7 @@ const logPayment = (milestoneId: string, message: string) =>
 const record = (milestoneId: string, kind: string, amountMinor: number, currency: string, paypalId: string) =>
   db.insert(payments).values({ milestoneId, kind, amountMinor, currency, paypalId });
 
-export async function startFunding(milestoneId: string) {
+export async function startFunding(milestoneId: string, { sdk = false } = {}) {
   const { m, j, state } = await load(milestoneId);
   if (j.status !== "accepted") throw new Error("The freelancer hasn't accepted this job yet.");
   const direct = m.state === "draft" ? env.PAYOUT_MODE === "direct" : m.direct; // mode is fixed at first funding
@@ -28,10 +28,10 @@ export async function startFunding(milestoneId: string) {
     milestoneId, title: `${j.title} — ${m.title}`, amountMinor: m.amountMinor, currency: j.currency,
     returnUrl: `${env.APP_URL}/api/paypal/return?milestone=${milestoneId}`,
     cancelUrl: `${env.APP_URL}/jobs/${j.id}`,
-    payeeEmail: direct ? j.freelancerEmail : undefined,
+    payeeEmail: direct ? j.freelancerEmail : undefined, sdk,
   });
   await transition(milestoneId, state, "funding", { orderId, direct });
-  return approveUrl;
+  return { orderId, approveUrl };
 }
 
 export async function completeFunding(milestoneId: string, orderId: string) {
@@ -43,6 +43,10 @@ export async function completeFunding(milestoneId: string, orderId: string) {
   try {
     await transition(milestoneId, "funding", "funded", { authorizationId });
   } catch (e) {
+    // The webhook and the browser can both complete the same order; the PayPal request id makes them
+    // share one authorization, so the loser must not void the winner's hold.
+    const [now] = await db.select().from(milestones).where(eq(milestones.id, milestoneId));
+    if (now?.authorizationId === authorizationId) return j.id;
     await voidAuthorization(authorizationId); // cancelled meanwhile: don't leave money held
     throw e;
   }
@@ -62,29 +66,50 @@ export async function cancel(milestoneId: string) {
   }
 }
 
-// Called only after shouldRelease() passed and the milestone is in `passed`.
-// ponytail: payout right after capture; review window comes in the Stage 4 plan.
-export async function release(milestoneId: string) {
+// Pays the freelancer `share`% of the hold (100 = all, 0 = nothing) and returns the rest to the client.
+// The only way money leaves a hold: release after the review window, and dispute decisions.
+export async function settle(milestoneId: string, from: "passed" | "disputed", share: number) {
   const { m, j, state } = await load(milestoneId);
-  if (state !== "passed") throw new Error(`Only verified milestones can be paid (this one is ${state})`);
-  const captureId = m.captureId ?? await captureAuthorization(m.authorizationId!, milestoneId);
-  await db.update(milestones).set({ captureId }).where(eq(milestones.id, milestoneId));
-  if (m.direct) {
-    await transition(milestoneId, "passed", "paid_out");
-    await record(milestoneId, "paid", m.amountMinor, j.currency, captureId);
-    await logPayment(milestoneId, `Paid ${formatMoney(m.amountMinor, j.currency)} directly to ${j.freelancerEmail} (capture ${captureId})`);
+  const paid = shareMinor(m.amountMinor, share); // throws on a bad share before any money moves
+  if (state !== from) throw new Error(`Milestone is ${state}, not ${from}`);
+  const rest = m.amountMinor - paid;
+
+  if (paid === 0) {
+    await transition(milestoneId, from, "cancelled", { capturedMinor: 0 }); // state first, then void
+    if (m.authorizationId) {
+      await voidAuthorization(m.authorizationId);
+      await record(milestoneId, "void", m.amountMinor, j.currency, m.authorizationId);
+    }
+    await logPayment(milestoneId, `${formatMoney(m.amountMinor, j.currency)} returned to the client (hold released)`);
     return;
   }
-  if (!m.captureId) { // first attempt only: a retried payout must not list the capture twice
-    await record(milestoneId, "captured", m.amountMinor, j.currency, captureId);
-    await logPayment(milestoneId, `Captured ${formatMoney(m.amountMinor, j.currency)} (capture ${captureId})`);
-  }
 
-  const amount = payoutMinor(m.amountMinor);
+  const captureId = m.captureId
+    ?? await (rest > 0 ? captureAuthorization(m.authorizationId!, milestoneId, { amountMinor: paid, currency: j.currency }) : captureAuthorization(m.authorizationId!, milestoneId));
+  await db.update(milestones).set({ captureId }).where(eq(milestones.id, milestoneId));
+  const firstAttempt = !m.captureId; // a retried payout must not list the capture twice
+  if (firstAttempt && rest > 0) {
+    await record(milestoneId, "void", rest, j.currency, m.authorizationId!);
+    await logPayment(milestoneId, `${formatMoney(rest, j.currency)} returned to the client`);
+  }
+  if (m.direct) {
+    await transition(milestoneId, from, "paid_out", { capturedMinor: paid });
+    await record(milestoneId, "paid", paid, j.currency, captureId);
+    await logPayment(milestoneId, `Paid ${formatMoney(paid, j.currency)} directly to ${j.freelancerEmail} (capture ${captureId})`);
+    return;
+  }
+  if (firstAttempt) {
+    await record(milestoneId, "captured", paid, j.currency, captureId);
+    await logPayment(milestoneId, `Captured ${formatMoney(paid, j.currency)} (capture ${captureId})`);
+  }
+  const amount = payoutMinor(paid);
   const payoutBatchId = await createPayout({
     milestoneId, email: j.freelancerEmail, amountMinor: amount, currency: j.currency, note: `${j.title} — ${m.title}`,
   });
-  await transition(milestoneId, "passed", "paid_out", { payoutBatchId });
+  await transition(milestoneId, from, "paid_out", { payoutBatchId, capturedMinor: paid });
   await record(milestoneId, "payout", amount, j.currency, payoutBatchId);
   await logPayment(milestoneId, `Paid ${formatMoney(amount, j.currency)} to ${j.freelancerEmail} (payout ${payoutBatchId})`);
 }
+
+// Full release of a verified milestone (review window ended or client approved).
+export const release = (milestoneId: string) => settle(milestoneId, "passed", 100);

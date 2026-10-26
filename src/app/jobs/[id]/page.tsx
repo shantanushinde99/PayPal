@@ -2,20 +2,34 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
-  Hourglass, MailOpen, ReceiptText, Send, Wallet, XCircle,
+  Hourglass, MailOpen, PlayCircle, ReceiptText, Scale, Send, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { saveMilestone, fundMilestone, cancelMilestone, submitProof, retryRelease, acceptInvitation, declineInvitation } from "../actions";
+import { saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
 import { LocalTime } from "@/components/local-time";
 import { AutoRefresh } from "./auto-refresh";
+import { DisputePanel, StatementForm } from "./dispute-panel";
+import { acceptDecisionAction, askJudgeAction, openDisputeAction, rejectDecisionAction, respondDisputeAction } from "../dispute-actions";
+import { shareMinor } from "@/lib/money";
 import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
+import { PayPalButtons } from "./paypal-buttons";
+import { env } from "@/lib/env";
+
+// JS SDK for authorize-intent buttons. In direct mode the freelancer is the payee, so the SDK must know them.
+const sdkSrc = (currency: string, payee?: string) => `${env.PAYPAL_WEB_BASE}/sdk/js?${new URLSearchParams({
+  "client-id": env.PAYPAL_CLIENT_ID, intent: "authorize", currency, components: "buttons,messages", "enable-funding": "venmo,paylater",
+  ...(payee && { "merchant-id": payee }),
+  ...(env.PAYPAL_API_BASE.includes("sandbox") && { "buyer-country": "US" }), // sandbox only: show US funding options
+})}`;
+import { CopyId } from "@/components/copy-id";
+import { ownershipCode, ownershipMeta } from "@/lib/ownership";
 
 type Loaded = Awaited<ReturnType<typeof loadJobForUser>>;
 type M = Loaded["milestones"][number];
@@ -62,8 +76,9 @@ function StateBanner({ m, currency, freelancer, blocked }: { m: M; currency: str
       const workMissing = !m.failReason || /checklist item/.test(m.failReason); // otherwise it was our side (AI busy, browser down)
       return <Banner tone="bg-amber-50 text-amber-900" icon={<AlertTriangle aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{m.failReason ?? "Some items aren't met yet."}</p><p>{workMissing ? "The money stays on hold. Fix the items marked below and resubmit." : "Nothing for you to fix: just resubmit the same proof."}</p></Banner>;
     }
-    case "passed": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<Loader2 aria-hidden className="size-5 shrink-0 animate-spin" />}><p className="font-semibold">All items verified. Releasing {amount}…</p></Banner>;
-    case "paid_out": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<CheckCircle2 aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{amount} paid to {freelancer}.</p></Banner>;
+    case "passed": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<Hourglass aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">All items verified. {amount} releases automatically{m.releaseAt ? <> on <LocalTime date={m.releaseAt} /></> : " shortly"}.</p><p>The client can approve now or dispute until then. The money stays on hold meanwhile.</p></Banner>;
+    case "disputed": return <Banner tone="bg-orange-50 text-orange-950" icon={<Scale aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">In dispute. {amount} stays on hold until it is resolved.</p></Banner>;
+    case "paid_out": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<CheckCircle2 aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{formatMoney(m.capturedMinor ?? m.amountMinor, currency)} paid to {freelancer}.{m.capturedMinor !== null && m.capturedMinor < m.amountMinor && <> {formatMoney(m.amountMinor - m.capturedMinor, currency)} returned to the client.</>}</p></Banner>;
     default: return null;
   }
 }
@@ -85,6 +100,12 @@ function Proof({ m }: { m: M }) {
             </figure>
           ))}
         </div>
+      )}
+      {m.hasReplay && (
+        <details className="group">
+          <summary className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><PlayCircle aria-hidden className="size-4" /> Watch the AI check this site</summary>
+          <video controls preload="metadata" src={`/api/replays/${s.id}`} className="mt-2 w-full rounded-lg border border-line bg-black">Your browser can&apos;t play this recording.</video>
+        </details>
       )}
       <Link href={`/jobs/${m.jobId}/report/${s.id}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><FileText aria-hidden className="size-4" /> View proof report</Link>
     </div>
@@ -119,6 +140,20 @@ function Activity({ m }: { m: M }) {
   );
 }
 
+function OwnershipHint({ code }: { code: string }) {
+  return (
+    <details className="text-sm text-ink-soft">
+      <summary className="cursor-pointer font-medium text-ink">Prove you own the site (required)</summary>
+      <div className="mt-2 space-y-1.5">
+        <p>Add this tag inside the homepage <code>&lt;head&gt;</code>:</p>
+        <CopyId value={ownershipMeta(code)} label="Copy verification tag" />
+        <p>or upload a file <code>.well-known/verifund.txt</code> containing <CopyId value={code} label="Copy verification code" /></p>
+        <p className="text-xs">Verifund&apos;s sample sites are exempt.</p>
+      </div>
+    </details>
+  );
+}
+
 function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: boolean }) {
   const { job, role } = data;
   const isClient = role === "client";
@@ -139,6 +174,13 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         </div>
 
         <StateBanner m={m} currency={job.currency} freelancer={job.freelancerEmail} blocked={blocked} />
+        {m.paypalDisputeId && (
+          <Banner tone="bg-red-50 text-red-900" icon={<Scale aria-hidden className="size-5 shrink-0" />}>
+            <p className="font-semibold">PayPal dispute {m.paypalDisputeId}: {m.paypalDisputeStatus?.replaceAll("_", " ").toLowerCase()}</p>
+            <p>The client opened a dispute on PayPal. {role === "freelancer" ? "Answer it in PayPal's Resolution Center and attach the proof report (open it, then Print → Save as PDF)." : "PayPal reviews it with the proof report Verifund recorded."}</p>
+            {m.submission && <Link href={`/jobs/${m.jobId}/report/${m.submission.id}`} className="font-semibold underline">Open the proof report</Link>}
+          </Banner>
+        )}
 
         {isClient && m.state === "draft" ? (
           <form action={saveMilestone.bind(null, m.id)} className="space-y-3 rounded-lg border border-line p-4">
@@ -184,12 +226,19 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
 
         <div className="flex flex-wrap items-center gap-3">
           {isClient && job.status === "accepted" && ["draft", "funding"].includes(m.state) && (
-            <form action={fundMilestone.bind(null, m.id)}>
-              <SubmitButton className={btn.paypal} pending="Opening PayPal…"><Lock aria-hidden className="size-4" /> Fund {formatMoney(m.amountMinor, job.currency)} with PayPal</SubmitButton>
-            </form>
-          )}
-          {isClient && m.state === "passed" && (
-            <form action={retryRelease.bind(null, m.id)}><SubmitButton className={btn.secondary} pending="Retrying…">Retry payment</SubmitButton></form>
+            <div className="w-full space-y-2">
+              <p className="inline-flex items-center gap-1.5 font-semibold"><Lock aria-hidden className="size-4" /> Fund {formatMoney(m.amountMinor, job.currency)}: it stays on hold until the work is verified</p>
+              <PayPalButtons
+                src={sdkSrc(job.currency, (m.state === "draft" ? env.PAYOUT_MODE === "direct" : m.direct) ? job.freelancerEmail : undefined)}
+                amount={toPayPalValue(m.amountMinor, job.currency)}
+                showMessage={job.currency === "USD"}
+                createOrder={createFundingOrder.bind(null, m.id)}
+                onApprove={approveFunding.bind(null, m.id)}
+              />
+              <form action={fundMilestone.bind(null, m.id)}>
+                <button className="cursor-pointer text-xs text-ink-soft underline hover:text-ink">Or pay on PayPal&apos;s website</button>
+              </form>
+            </div>
           )}
           {isClient && ["draft", "funding", "funded", "failed"].includes(m.state) && (
             <form action={cancelMilestone.bind(null, m.id)}>
@@ -204,13 +253,51 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             {m.proofType === "photo" ? (
               <PhotoProofForm action={submitProof.bind(null, m.id)} />
             ) : (
-              <form action={submitProof.bind(null, m.id)} className="flex flex-col gap-3 sm:flex-row">
-                <label htmlFor={`url-${m.id}`} className="sr-only">Website URL</label>
-                <input id={`url-${m.id}`} name="url" type="url" required placeholder="https://your-site.com" defaultValue={m.submission?.url ?? undefined} className={field} />
-                <SubmitButton className={`${btn.primary} shrink-0`} pending="Submitting…"><Send aria-hidden className="size-4" /> Submit for AI check</SubmitButton>
-              </form>
+              <>
+                <form action={submitProof.bind(null, m.id)} className="flex flex-col gap-3 sm:flex-row">
+                  <label htmlFor={`url-${m.id}`} className="sr-only">Website URL</label>
+                  <input id={`url-${m.id}`} name="url" type="url" required placeholder="https://your-site.com" defaultValue={m.submission?.url ?? undefined} className={field} />
+                  <SubmitButton className={`${btn.primary} shrink-0`} pending="Submitting…"><Send aria-hidden className="size-4" /> Submit for AI check</SubmitButton>
+                </form>
+                <OwnershipHint code={ownershipCode(job.freelancerId ?? "none")} />
+              </>
             )}
           </div>
+        )}
+
+        {isClient && m.state === "passed" && (
+          <div className="flex flex-wrap items-start gap-3 rounded-lg border border-emerald-200 p-4">
+            <form action={approveRelease.bind(null, m.id)}>
+              <SubmitButton className={btn.primary} pending="Paying…"><CheckCircle2 aria-hidden className="size-4" /> Approve &amp; pay now</SubmitButton>
+            </form>
+            <details className="min-w-0 flex-1">
+              <summary className={`${btn.secondary} list-none`}><Scale aria-hidden className="size-4" /> Dispute the result</summary>
+              <div className="mt-3"><StatementForm action={openDisputeAction.bind(null, m.id)} label="What is not done, despite the AI's pass?" cta="Open dispute" placeholder="The contact form submits but no email arrives…" /></div>
+            </details>
+          </div>
+        )}
+        {role === "freelancer" && m.state === "failed" && m.verdict.length > 0 && (
+          <details className="rounded-lg border border-line p-4">
+            <summary className="cursor-pointer text-sm font-semibold">Think the AI got it wrong? Dispute it</summary>
+            <div className="mt-3"><StatementForm action={openDisputeAction.bind(null, m.id)} label="Why the work meets the checklist" cta="Open dispute" placeholder="The opening hours are in the footer of every page…" /></div>
+          </details>
+        )}
+        {m.dispute && (
+          <DisputePanel
+            d={m.dispute}
+            role={role}
+            amountLabel={formatMoney(m.amountMinor, job.currency)}
+            splitLabels={m.dispute.judgeShare === null ? null : {
+              freelancer: formatMoney(shareMinor(m.amountMinor, m.dispute.judgeShare), job.currency),
+              client: formatMoney(m.amountMinor - shareMinor(m.amountMinor, m.dispute.judgeShare), job.currency),
+            }}
+            actions={{
+              respond: respondDisputeAction.bind(null, m.id),
+              ask: askJudgeAction.bind(null, m.id),
+              accept: acceptDecisionAction.bind(null, m.id),
+              reject: rejectDecisionAction.bind(null, m.id),
+            }}
+          />
         )}
 
         <Activity m={m} />
@@ -278,7 +365,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   return (
     <>
       <Header user={user} />
-      <AutoRefresh active={milestones.some((m) => m.state === "verifying" || m.state === "passed")} />
+      <AutoRefresh
+        active={milestones.some((m) => m.state === "verifying")}
+        refreshAt={milestones.filter((m) => m.state === "passed" && m.releaseAt).map((m) => m.releaseAt!.toISOString()).sort()[0]}
+      />
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-8">
         <Link href="/" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink"><ArrowLeft aria-hidden className="size-4" /> Dashboard</Link>
         <div className="space-y-3">

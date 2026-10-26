@@ -5,7 +5,7 @@ import { jobs, milestones, payments, users } from "@/db/schema";
 import { describePayment, type PaymentView, type Role } from "@/lib/payment-view";
 
 export type PaymentItem = {
-  id: string; kind: string; amountMinor: number; currency: string; paypalId: string; createdAt: Date;
+  id: string; kind: string; amountMinor: number; currency: string; paypalId: string; confirmedAt: Date | null; createdAt: Date;
   jobId: string; jobTitle: string; milestoneTitle: string; role: Role; view: PaymentView;
 };
 

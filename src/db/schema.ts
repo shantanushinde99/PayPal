@@ -1,4 +1,6 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, customType } from "drizzle-orm/pg-core";
+
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
 export const users = pgTable("users", {
   id: uuid().primaryKey().defaultRandom(),
@@ -49,6 +51,10 @@ export const milestones = pgTable("milestones", {
   captureId: text(),
   payoutBatchId: text(),
   failReason: text(),
+  releaseAt: timestamp({ withTimezone: true }), // end of the review window after an AI pass
+  capturedMinor: integer(), // what was actually paid; less than amountMinor after a split decision
+  paypalDisputeId: text(), // a buyer dispute opened on PayPal itself (webhook)
+  paypalDisputeStatus: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
@@ -70,6 +76,13 @@ export const submissions = pgTable("submissions", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
+// KERNEL's recording of a website check (MP4). Its own table so page loads never pull the bytes.
+export const replays = pgTable("replays", {
+  submissionId: uuid().primaryKey().references(() => submissions.id, { onDelete: "cascade" }),
+  mp4: bytea().notNull(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
+
 export const verdictItems = pgTable("verdict_items", {
   id: uuid().primaryKey().defaultRandom(),
   submissionId: uuid().notNull().references(() => submissions.id),
@@ -80,6 +93,26 @@ export const verdictItems = pgTable("verdict_items", {
   pageUrl: text(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
+// One per milestone: a client disputing an AI pass, or a freelancer disputing an AI fail.
+export const disputes = pgTable("disputes", {
+  id: uuid().primaryKey().defaultRandom(),
+  milestoneId: uuid().notNull().unique().references(() => milestones.id),
+  openedBy: text().notNull(), // client | freelancer
+  clientStatement: text(),
+  freelancerStatement: text(),
+  status: text().notNull().default("open"), // open | judged | escalated | resolved
+  judgeShare: integer(), // freelancer's share 0-100 proposed by the AI Judge
+  judgeReasoning: text(),
+  decideAt: timestamp({ withTimezone: true }), // judged decision settles automatically after this
+  clientAccepted: boolean().notNull().default(false),
+  freelancerAccepted: boolean().notNull().default(false),
+  rejectedBy: text(),
+  finalShare: integer(),
+  adminNote: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp({ withTimezone: true }),
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
+
 // Every money movement, in structured form (the activity log has the same events as text).
 export const payments = pgTable("payments", {
   id: uuid().primaryKey().defaultRandom(),
@@ -88,8 +121,18 @@ export const payments = pgTable("payments", {
   amountMinor: integer().notNull(),
   currency: text().notNull(),
   paypalId: text().notNull(),
+  confirmedAt: timestamp({ withTimezone: true }), // PayPal's webhook confirmed this movement
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
+
+// Every verified PayPal webhook, stored once (PayPal retries deliveries).
+export const paypalEvents = pgTable("paypal_events", {
+  id: text().primaryKey(), // PayPal's event id
+  type: text().notNull(),
+  milestoneId: uuid().references(() => milestones.id, { onDelete: "set null" }),
+  payload: jsonb().notNull(),
+  receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
 
 // Audit log + live agent steps. image = base64 JPEG (demo scale).
 export const events = pgTable("events", {
@@ -104,3 +147,4 @@ export const events = pgTable("events", {
 export type Job = typeof jobs.$inferSelect;
 export type Milestone = typeof milestones.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type Dispute = typeof disputes.$inferSelect;
