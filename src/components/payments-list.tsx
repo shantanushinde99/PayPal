@@ -15,7 +15,8 @@ const TONE = {
 // Google Pay–style history. Completed payments are re-checked with PayPal for a "Confirmed" badge.
 export async function PaymentsList({ items, showJob = false, empty }: { items: PaymentItem[]; showJob?: boolean; empty: string }) {
   if (!items.length) return <Card className="p-6 text-center text-ink-soft">{empty}</Card>;
-  const confirmed = await Promise.all(items.map((p) => (p.kind === "paid" || p.kind === "captured" ? captureStatus(p.paypalId) : null)));
+  // The webhook confirms most movements; ask PayPal live only for captures it hasn't confirmed yet.
+  const confirmed = await Promise.all(items.map((p) => (p.confirmedAt ? "COMPLETED" : p.kind === "paid" || p.kind === "captured" ? captureStatus(p.paypalId) : null)));
   return (
     <Card>
       <ul className="divide-y divide-line">

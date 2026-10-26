@@ -7,7 +7,7 @@ const who = { client: "c@x.test", freelancer: "f@x.test" };
 const item = (kind: string, role: "client" | "freelancer", amountMinor: number, currency = "USD", settled = false): PaymentItem => {
   let view = describePayment(kind, role, who)!;
   if (settled) view = { ...view, sign: "", status: "Settled", tone: "returned" };
-  return { id: Math.random().toString(), kind, amountMinor, currency, paypalId: "X", createdAt: new Date(), jobId: "j", jobTitle: "J", milestoneTitle: "M", role, view };
+  return { id: Math.random().toString(), kind, amountMinor, currency, paypalId: "X", confirmedAt: null, createdAt: new Date(), jobId: "j", jobTitle: "J", milestoneTitle: "M", role, view };
 };
 
 describe("walletSummary", () => {

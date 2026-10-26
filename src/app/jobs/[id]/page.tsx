@@ -174,6 +174,13 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         </div>
 
         <StateBanner m={m} currency={job.currency} freelancer={job.freelancerEmail} blocked={blocked} />
+        {m.paypalDisputeId && (
+          <Banner tone="bg-red-50 text-red-900" icon={<Scale aria-hidden className="size-5 shrink-0" />}>
+            <p className="font-semibold">PayPal dispute {m.paypalDisputeId}: {m.paypalDisputeStatus?.replaceAll("_", " ").toLowerCase()}</p>
+            <p>The client opened a dispute on PayPal. {role === "freelancer" ? "Answer it in PayPal's Resolution Center and attach the proof report (open it, then Print → Save as PDF)." : "PayPal reviews it with the proof report Verifund recorded."}</p>
+            {m.submission && <Link href={`/jobs/${m.jobId}/report/${m.submission.id}`} className="font-semibold underline">Open the proof report</Link>}
+          </Banner>
+        )}
 
         {isClient && m.state === "draft" ? (
           <form action={saveMilestone.bind(null, m.id)} className="space-y-3 rounded-lg border border-line p-4">

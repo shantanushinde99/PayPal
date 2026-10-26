@@ -110,3 +110,25 @@ export async function captureStatus(captureId: string): Promise<string | null> {
     return null; // a confirmation badge is optional; never break the page
   }
 }
+
+// PayPal checks the signature for us; the webhook id ties it to our registration.
+export async function verifyWebhookSignature(h: Headers, event: unknown): Promise<boolean> {
+  if (!env.PAYPAL_WEBHOOK_ID) return false;
+  const r = await pp("/v1/notifications/verify-webhook-signature", {
+    auth_algo: h.get("paypal-auth-algo"), cert_url: h.get("paypal-cert-url"), transmission_id: h.get("paypal-transmission-id"),
+    transmission_sig: h.get("paypal-transmission-sig"), transmission_time: h.get("paypal-transmission-time"),
+    webhook_id: env.PAYPAL_WEBHOOK_ID, webhook_event: event,
+  });
+  return r?.verification_status === "SUCCESS";
+}
+
+// Answers a buyer's PayPal dispute with our proof. Only works when the platform can see the dispute
+// (in direct mode it belongs to the freelancer's account, so this usually fails and we show guidance).
+export async function provideDisputeEvidence(disputeId: string, notes: string) {
+  const form = new FormData();
+  form.append("input", new Blob([JSON.stringify({ evidences: [{ evidence_type: "PROOF_OF_FULFILLMENT", notes: notes.slice(0, 2000) }] })], { type: "application/json" }));
+  const res = await fetch(`${env.PAYPAL_API_BASE}/v1/customer/disputes/${encodeURIComponent(disputeId)}/provide-evidence`, {
+    method: "POST", headers: { Authorization: `Bearer ${await accessToken()}` }, body: form,
+  });
+  if (!res.ok) throw new Error(`PayPal provide-evidence failed: ${res.status} ${await res.text()}`);
+}

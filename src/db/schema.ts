@@ -53,6 +53,8 @@ export const milestones = pgTable("milestones", {
   failReason: text(),
   releaseAt: timestamp({ withTimezone: true }), // end of the review window after an AI pass
   capturedMinor: integer(), // what was actually paid; less than amountMinor after a split decision
+  paypalDisputeId: text(), // a buyer dispute opened on PayPal itself (webhook)
+  paypalDisputeStatus: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
@@ -119,8 +121,18 @@ export const payments = pgTable("payments", {
   amountMinor: integer().notNull(),
   currency: text().notNull(),
   paypalId: text().notNull(),
+  confirmedAt: timestamp({ withTimezone: true }), // PayPal's webhook confirmed this movement
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
+
+// Every verified PayPal webhook, stored once (PayPal retries deliveries).
+export const paypalEvents = pgTable("paypal_events", {
+  id: text().primaryKey(), // PayPal's event id
+  type: text().notNull(),
+  milestoneId: uuid().references(() => milestones.id, { onDelete: "set null" }),
+  payload: jsonb().notNull(),
+  receivedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
 
 // Audit log + live agent steps. image = base64 JPEG (demo scale).
 export const events = pgTable("events", {
