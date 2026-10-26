@@ -1,5 +1,5 @@
 import { FunctionCallingConfigMode, type Content, type GenerateContentConfig } from "@google/genai";
-import { generate } from "@/lib/gemini";
+import { CHAT_MODELS, generate } from "@/lib/gemini";
 
 // The subset of AG Studio's AgLlmRequest we use (ag-studio/dist/types/api/ai/agLlmAdapter.d.ts).
 type Text = { type?: string; text?: string };
@@ -67,7 +67,7 @@ export function toGemini(req: StudioRequest): { contents: Content[]; config: Gen
 
 export async function askStudio(req: StudioRequest): Promise<StudioReply> {
   const { contents, config } = toGemini(req);
-  const res = await generate({ contents, config });
+  const res = await generate({ contents, config }, CHAT_MODELS);
   const parts = res.candidates?.[0]?.content?.parts ?? [];
   const calls = parts.flatMap((p) => {
     if (!p.functionCall) return [];

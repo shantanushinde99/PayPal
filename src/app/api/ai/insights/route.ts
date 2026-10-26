@@ -4,7 +4,7 @@ import { askStudio, type StudioRequest } from "@/lib/insights-ai";
 import { AiBusyError } from "@/lib/gemini";
 
 // Shares the free Gemini quota with the checker, so each person gets a small budget (one question can take a few turns).
-const perUser = new RateLimiter(10, 100);
+const perUser = new RateLimiter(30, 300);
 const MAX_BODY = 400_000;
 
 // AG Studio's "Ask your data" model call. The key stays here; the browser only sees answers and tool calls.
