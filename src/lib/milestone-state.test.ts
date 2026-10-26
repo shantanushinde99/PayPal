@@ -20,3 +20,19 @@ describe("canTransition", () => {
     expect(canTransition("passed", "cancelled")).toBe(false);
   });
 });
+
+describe("review window and disputes", () => {
+  it("lets a verified milestone be paid or disputed, and a failed one be disputed", () => {
+    expect(canTransition("passed", "disputed")).toBe(true);
+    expect(canTransition("failed", "disputed")).toBe(true);
+    expect(canTransition("disputed", "paid_out")).toBe(true);
+    expect(canTransition("disputed", "cancelled")).toBe(true);
+  });
+  it("keeps money states final and disputes out of other states", () => {
+    expect(canTransition("funded", "disputed")).toBe(false);
+    expect(canTransition("verifying", "disputed")).toBe(false);
+    expect(canTransition("paid_out", "disputed")).toBe(false);
+    expect(canTransition("disputed", "verifying")).toBe(false);
+    expect(canTransition("disputed", "disputed")).toBe(false);
+  });
+});

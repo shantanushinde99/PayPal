@@ -49,6 +49,8 @@ export const milestones = pgTable("milestones", {
   captureId: text(),
   payoutBatchId: text(),
   failReason: text(),
+  releaseAt: timestamp({ withTimezone: true }), // end of the review window after an AI pass
+  capturedMinor: integer(), // what was actually paid; less than amountMinor after a split decision
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
@@ -80,6 +82,26 @@ export const verdictItems = pgTable("verdict_items", {
   pageUrl: text(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
+// One per milestone: a client disputing an AI pass, or a freelancer disputing an AI fail.
+export const disputes = pgTable("disputes", {
+  id: uuid().primaryKey().defaultRandom(),
+  milestoneId: uuid().notNull().unique().references(() => milestones.id),
+  openedBy: text().notNull(), // client | freelancer
+  clientStatement: text(),
+  freelancerStatement: text(),
+  status: text().notNull().default("open"), // open | judged | escalated | resolved
+  judgeShare: integer(), // freelancer's share 0-100 proposed by the AI Judge
+  judgeReasoning: text(),
+  decideAt: timestamp({ withTimezone: true }), // judged decision settles automatically after this
+  clientAccepted: boolean().notNull().default(false),
+  freelancerAccepted: boolean().notNull().default(false),
+  rejectedBy: text(),
+  finalShare: integer(),
+  adminNote: text(),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  resolvedAt: timestamp({ withTimezone: true }),
+}).enableRLS(); // Supabase: no public API access; the app connects as the owner
+
 // Every money movement, in structured form (the activity log has the same events as text).
 export const payments = pgTable("payments", {
   id: uuid().primaryKey().defaultRandom(),
@@ -104,3 +126,4 @@ export const events = pgTable("events", {
 export type Job = typeof jobs.$inferSelect;
 export type Milestone = typeof milestones.$inferSelect;
 export type User = typeof users.$inferSelect;
+export type Dispute = typeof disputes.$inferSelect;

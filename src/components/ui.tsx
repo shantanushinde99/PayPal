@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Ban, CheckCircle2, CircleDashed, Clock, Loader2, Lock, RotateCw, Wallet } from "lucide-react";
+import { Ban, CheckCircle2, CircleDashed, Clock, Loader2, Lock, RotateCw, Scale, Wallet } from "lucide-react";
 import type { MilestoneState } from "@/lib/milestone-state";
 
 export const btn = {
@@ -21,7 +21,8 @@ const STATES: Record<MilestoneState, { label: string; tone: string; Icon: typeof
   funded: { label: "Funded · on hold", tone: "bg-sky-100 text-sky-900", Icon: Lock },
   verifying: { label: "AI checking", tone: "bg-violet-100 text-violet-800", Icon: Loader2, spin: true },
   failed: { label: "Changes needed", tone: "bg-amber-100 text-amber-900", Icon: RotateCw },
-  passed: { label: "Verified · paying", tone: "bg-emerald-50 text-emerald-800", Icon: Clock },
+  passed: { label: "Verified · review window", tone: "bg-emerald-50 text-emerald-800", Icon: Clock },
+  disputed: { label: "In dispute", tone: "bg-orange-100 text-orange-900", Icon: Scale },
   paid_out: { label: "Paid", tone: "bg-emerald-600 text-white", Icon: CheckCircle2 },
   cancelled: { label: "Cancelled", tone: "bg-slate-100 text-slate-500", Icon: Ban },
 };
