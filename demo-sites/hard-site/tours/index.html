@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>All tours · Northwind Travel</title><meta name="description" content="Browse and filter every Northwind tour.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🧭%3C/text%3E%3C/svg%3E"><link rel="stylesheet" href="../assets/site.css"></head>
+<body>
+<main>
+<nav class="crumbs wrap" aria-label="Breadcrumb"><a href="../">Home</a> › <span aria-current="page">Tours</span></nav>
+<section><div class="wrap"><h1>All tours</h1><p class="lead" id="count">Loading tours…</p>
+<form class="filters" id="filters"><label>Destination<select name="region"><option value="">All</option><option>Japan</option><option>Peru</option><option>Iceland</option></select></label>
+<label>Max price (USD)<input name="max" type="number" min="0" step="100" placeholder="Any"></label>
+<label>Sort by<select name="sort"><option value="rating">Top rated</option><option value="price">Lowest price</option><option value="days">Shortest</option></select></label>
+<label><span><input type="checkbox" name="available"> Only bookable</span></label></form>
+<div class="cards" id="results" aria-live="polite"></div></div></section>
+</main>
+<script src="../assets/site.js"></script>
+<script>
+const f = document.getElementById("filters"), out = document.getElementById("results");
+const q = new URLSearchParams(location.search);
+["region","max","sort"].forEach((k) => { if (q.get(k)) f.elements[k].value = q.get(k); });
+const BADGE = { "sold-out": '<span class="badge out">Sold out</span>', "coming-soon": '<span class="badge soon">Coming soon</span>' };
+loadTours().then((tours) => {
+  const render = () => {
+    const v = Object.fromEntries(new FormData(f));
+    let list = tours.filter((t) => (!v.region || t.region === v.region) && (!v.max || t.priceUsd <= +v.max) && (!v.available || t.status === "available"));
+    list.sort((a, b) => v.sort === "price" ? a.priceUsd - b.priceUsd : v.sort === "days" ? a.days - b.days : b.rating - a.rating);
+    document.getElementById("count").textContent = `${list.length} of ${tours.length} tours`;
+    out.innerHTML = list.map((t) => `<article class="card"><div class="body"><span class="badge">${t.region}</span>${BADGE[t.status] || ""}
+      <h3>${t.title}</h3><p>${t.summary}</p><p class="meta">${t.days} days · ★ ${t.rating}</p>
+      <p>From <span class="price" data-usd="${t.priceUsd}"></span></p>
+      ${t.status === "available" ? `<a class="btn alt" href="${t.slug}.html">View tour</a>` : `<button class="btn" disabled>Not bookable</button>`}</div></article>`).join("")
+      || "<p>No tours match these filters.</p>";
+    paintPrices();
+  };
+  f.addEventListener("input", render); document.addEventListener("currency", render); render();
+});</script>
+</body></html>

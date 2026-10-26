@@ -1,0 +1,8 @@
+[
+  {"slug":"kyoto-temples","title":"Kyoto Temples & Tea","region":"Japan","days":7,"priceUsd":2450,"rating":4.9,"status":"available","summary":"Zen gardens, a private tea ceremony and a night in a ryokan."},
+  {"slug":"tokyo-after-dark","title":"Tokyo After Dark Food Tour","region":"Japan","days":4,"priceUsd":1290,"rating":4.7,"status":"sold-out","summary":"Izakayas, ramen alleys and the Tsukiji outer market."},
+  {"slug":"inca-trail","title":"Classic Inca Trail to Machu Picchu","region":"Peru","days":5,"priceUsd":1890,"rating":4.8,"status":"available","summary":"Four days on foot to the Sun Gate with expert local guides."},
+  {"slug":"amazon-lodge","title":"Amazon Rainforest Lodge","region":"Peru","days":4,"priceUsd":1350,"rating":4.6,"status":"sold-out","summary":"Canopy walks and river safaris from an eco-lodge."},
+  {"slug":"northern-lights","title":"Northern Lights & Ice Caves","region":"Iceland","days":6,"priceUsd":2980,"rating":4.9,"status":"available","summary":"Aurora hunting, a crystal ice cave and the Blue Lagoon."},
+  {"slug":"ring-road","title":"Iceland Ring Road Self-Drive","region":"Iceland","days":10,"priceUsd":3400,"rating":4.5,"status":"coming-soon","summary":"Waterfalls, glaciers and black-sand beaches at your own pace."}
+]
