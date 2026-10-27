@@ -1,0 +1,19 @@
+{
+  "name": "northwind-travel-demo",
+  "private": true,
+  "description": "Demo website for testing Verifund's AI checker: a Next.js + React app exported as static files for GitHub Pages.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && node publish.mjs"
+  },
+  "dependencies": {
+    "next": "16.4.3",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24",
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}

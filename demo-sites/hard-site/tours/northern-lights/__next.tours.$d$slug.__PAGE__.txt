@@ -1,0 +1,41 @@
+1:"$Sreact.fragment"
+2:"/PayPal/demo-sites/hard-site/_next/static/chunks/2ha5p87_bnsam.js"
+3:"/PayPal/demo-sites/hard-site/_next/static/chunks/3bgowshr7rjsk.js"
+4:I[28739,["$2","$3"],"Providers"]
+5:I[58562,["$2","$3"],"Header"]
+6:I[39756,["$2"],"default"]
+7:I[37457,["$2"],"default"]
+8:I[58562,["$2","$3"],"Footer"]
+9:I[58562,["$2","$3"],"CookieBar"]
+12:I[58562,["$2","$3"],"Crumbs"]
+13:I[28739,["$2","$3"],"Price"]
+14:I[22016,["$2","$3"],""]
+15:I[11647,["$2","$3"],"EnquireButton"]
+1a:"ViewportBoundary"
+1b:I[97367,["$2"],"$1a"]
+1c:"MetadataBoundary"
+1d:I[97367,["$2"],"$1c"]
+1e:"$Sreact.suspense"
+1f:I[27201,["$2"],"IconMark"]
+:HL["/PayPal/demo-sites/hard-site/_next/static/chunks/022gaf7r96f00.css","style"]
+b:X
+e:X
+e:C
+11:[["children",{"s":"__PAGE__","h":160,"d":{"r":["$","$1","c",{"children":[[["$","$L12",null,{"items":[["/","Home"],["/tours/","Tours"],[null,"Northern Lights & Ice Caves"]]}],["$","section",null,{"children":["$","div",null,{"className":"wrap split","children":[["$","div",null,{"children":[["$","span",null,{"className":"badge","children":"Iceland"}],["$","h1",null,{"children":["🌌"," ","Northern Lights & Ice Caves"]}],["$","p",null,{"className":"lead","children":[6," days · max ",14," travellers · ★ ",4.9]}],["$","h2",null,{"children":"Day by day"}],["$","ol",null,{"className":"itinerary","children":[["$","li","Reykjavík arrival and harbour walk",{"children":[["$","b",null,{"children":["Day ",1,":"]}]," ","Reykjavík arrival and harbour walk"]}],["$","li","Golden Circle: Þingvellir, Geysir, Gullfoss",{"children":[["$","b",null,{"children":["Day ",2,":"]}]," ","Golden Circle: Þingvellir, Geysir, Gullfoss"]}],["$","li","South coast waterfalls and black-sand beach",{"children":[["$","b",null,{"children":["Day ",3,":"]}]," ","South coast waterfalls and black-sand beach"]}],["$","li","Crystal ice cave on Vatnajökull glacier",{"children":[["$","b",null,{"children":["Day ",4,":"]}]," ","Crystal ice cave on Vatnajökull glacier"]}],["$","li","Jökulsárlón lagoon and aurora hunt",{"children":[["$","b",null,{"children":["Day ",5,":"]}]," ","Jökulsárlón lagoon and aurora hunt"]}],["$","li","Blue Lagoon and departure",{"children":[["$","b",null,{"children":["Day ",6,":"]}]," ","Blue Lagoon and departure"]}]]}],["$","h2",null,{"children":"What's included"}],["$","ul",null,{"children":[["$","li","5 nights in boutique hotels",{"children":"5 nights in boutique hotels"}],["$","li","Glacier guide and safety gear",{"children":"Glacier guide and safety gear"}],["$","li","Nightly aurora hunts (weather permitting)",{"children":"Nightly aurora hunts (weather permitting)"}],["$","li","Blue Lagoon entry",{"children":"Blue Lagoon entry"}]]}],["$","h2",null,{"children":"Not included"}],["$","ul",null,{"children":[["$","li","Lunches",{"children":"Lunches"}],["$","li","Flights to Iceland",{"children":"Flights to Iceland"}]]}]]}],["$","aside",null,{"className":"panel","children":[["$","p",null,{"children":"From"}],["$","p",null,{"style":{"fontSize":"2rem"},"children":["$","$L13",null,{"usd":2980}]}],["$","p",null,{"className":"meta","children":"per person, twin share"}],["$","p",null,{"children":[["$","$L14",null,{"className":"btn","href":"/booking/?tour=northern-lights","children":"Book this tour"}]," ",["$","$L15",null,{"tour":"Northern Lights & Ice Caves"}]]}],["$","p",null,{"className":"meta","children":["Questions? ",["$","$L14",null,{"href":"/contact/","children":"Talk to a travel expert"}]," or see ","$L16","."]}]]}]]}]}]],["$L17"],"$L18"]}],"p":"$@19","v":null,"s":"$b"}}]]
+f:[["children",{"s":{"n":"slug","t":"d","k":"northern-lights","s":[]},"h":65632,"d":{"r":["$","$1","c",{"children":[null,["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}]}]]}],"p":"$@10","v":"$e","s":"$b"},"c":"$Q11"}]]
+c:[["children",{"s":"tours","h":131168,"d":{"r":["$","$1","c",{"children":[null,["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}]}]]}],"p":"$@d","v":"$e","s":"$b"},"c":"$Qf"}]]
+0:{"t":{"t":{"s":"","h":131152,"d":{"r":["$","$1","c",{"children":[[["$","link","0",{"rel":"stylesheet","href":"/PayPal/demo-sites/hard-site/_next/static/chunks/022gaf7r96f00.css","precedence":"next"}],["$","script","script-0",{"src":"/PayPal/demo-sites/hard-site/_next/static/chunks/2ha5p87_bnsam.js","async":true}]],["$","html",null,{"lang":"en","children":["$","body",null,{"children":["$","$L4",null,{"children":[["$","$L5",null,{}],["$","main",null,{"children":["$","$L6",null,{"parallelRouterKey":"children","template":["$","$L7",null,{}],"notFound":[[["$","title",null,{"children":"404: This page could not be found."}],["$","div",null,{"style":{"fontFamily":"system-ui,\"Segoe UI\",Roboto,Helvetica,Arial,sans-serif,\"Apple Color Emoji\",\"Segoe UI Emoji\"","height":"100vh","textAlign":"center","display":"flex","flexDirection":"column","alignItems":"center","justifyContent":"center"},"children":["$","div",null,{"children":[["$","style",null,{"dangerouslySetInnerHTML":{"__html":"body{color:#000;background:#fff;margin:0}.next-error-h1{border-right:1px solid rgba(0,0,0,.3)}@media (prefers-color-scheme:dark){body{color:#fff;background:#000}.next-error-h1{border-right:1px solid rgba(255,255,255,.3)}}"}}],["$","h1",null,{"className":"next-error-h1","style":{"display":"inline-block","margin":"0 20px 0 0","padding":"0 23px 0 0","fontSize":24,"fontWeight":500,"verticalAlign":"top","lineHeight":"49px"},"children":404}],["$","div",null,{"style":{"display":"inline-block"},"children":["$","h2",null,{"style":{"fontSize":14,"fontWeight":400,"lineHeight":"49px","margin":0},"children":"This page could not be found."}]}]]}]}]],[]]}]}],["$","$L8",null,{}],["$","$L9",null,{}]]}]}]}]]}],"p":"$@a","v":null,"s":"$b"},"c":"$Qc"},"h":{"r":["$","$1","h",{"children":[null,["$","$L1b",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","$L1d",null,{"children":[["$","div",null,{"hidden":true,"children":["$","$1e",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Northern Lights & Ice Caves · Northwind Travel"}],["$","meta","1",{"name":"description","content":"6-day small-group tour: Northern Lights & Ice Caves."}],["$","link","2",{"rel":"icon","href":"data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ctext y=%22.9em%22 font-size=%2290%22%3E🧭%3C/text%3E%3C/svg%3E"}],["$","$L1f","3",{}]]}]}],null]}],null]}],"p":"$@20","v":null,"s":"$b"}},"a":"$@21","u":"$@22","b":"Ulsk9LMfv1tN9dH38uz8G"}
+23:I[97367,["$2"],"OutletBoundary"]
+16:["$","$L14",null,{"href":"/destinations/iceland/","children":["more about ","Iceland"]}]
+17:["$","script","script-0",{"src":"/PayPal/demo-sites/hard-site/_next/static/chunks/3bgowshr7rjsk.js","async":true}]
+18:["$","$L23",null,{"children":["$","$1e",null,{"name":"Next.MetadataOutlet","children":"$@24"}]}]
+b:300
+24:null
+22:true
+b:C
+21:0
+10:"$undefined"
+d:"$undefined"
+a:"$undefined"
+20:"$undefined"
+19:"$undefined"

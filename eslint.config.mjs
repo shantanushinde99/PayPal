@@ -7,6 +7,9 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Override default ignores of eslint-config-next.
   globalIgnores([
+    // Demo websites for testing the AI checker are separate projects.
+    "demo-sites-src/**",
+    "demo-sites/**",
     // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",

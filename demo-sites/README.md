@@ -9,7 +9,7 @@ skip the site ownership check.
 | `bakery-v1/` | Sunrise Bakery, broken version: the email has a typo (`helo@`), there's no contact form, and the team link is broken | easy |
 | `bakery-v2/` | Sunrise Bakery, fixed version | easy |
 | `intermediate/` | Greenleaf Dental: 7 pages, appointment form with validation, pricing table, FAQ, mobile menu | intermediate |
-| `hard-site/` | Northwind Travel: 19 pages across 3 folder levels, see below | hard |
+| `hard-site/` | Northwind Travel: a **Next.js + React** app (static export), 21 routes, see below | hard |
 
 `screenshots/<folder>/` has screenshots of each site. Upload `01-home-desktop.jpg` as the client's **Reference design**.
 The `-phone` and `-full-page` versions are there for viewing.
@@ -38,13 +38,23 @@ Patients can pay online with a card on the booking page
 ## Hard: Northwind Travel
 URL: `https://shantanushinde99.github.io/PayPal/demo-sites/hard-site/`
 
-Why it's harder for the AI checker:
-- **The header, menu and footer are built by JavaScript**, not written in the HTML.
-- **The tour list is loaded from a JSON file**, and has filters and an "only bookable" toggle. Three of the six tours are sold out or coming soon, and they have no page.
-- **Pages sit three folders deep** (`destinations/japan/`, `blog/posts/…`), with breadcrumbs and a Destinations dropdown.
-- **The booking form has three steps:** trip, then lead traveller, then review. Each step checks its own fields, and the review shows the total and a 20% deposit.
+Why it's harder for the AI checker: it's built the way many real client sites are now.
+- **A Next.js + React app**, exported as static files. Its source is in [`demo-sites-src/northwind`](../demo-sites-src/northwind).
+- **Pages change by client-side navigation.** Following a link swaps the page without a full reload.
+- **The tour catalogue isn't in the HTML at all.** It's fetched in the browser after the page loads, then filtered and sorted with React state. Three of the six tours are sold out or coming soon, and they have no page.
+- **The booking form is a React wizard** with three steps: trip, then lead traveller, then review. Each step validates its own fields, and the review shows the total and a 20% deposit.
 - **There is a login form.** The demo account is `demo@northwindtravel.co` / `travel2026`.
-- **A currency switcher** shows prices in USD, EUR or GBP. The journal is split across two pages, and the FAQ uses accordions.
+- **A currency switcher** shows prices in USD, EUR or GBP, and remembers the choice.
+- **A cookie-consent bar** covers the bottom of the page until it's dismissed.
+- **An "Ask a question" pop-up** confirms with a toast notification.
+- The FAQ uses accordions, the journal is split across two pages, and there are breadcrumbs and a Destinations dropdown.
+
+To rebuild after editing the source:
+```
+cd demo-sites-src/northwind
+npm install
+npm run build   # exports the site and copies it into demo-sites/hard-site
+```
 
 Checklist that should **pass**:
 ```

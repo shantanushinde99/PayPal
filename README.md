@@ -76,7 +76,7 @@ Screenshots of the app running on the PayPal sandbox.
 </tr>
 <tr>
 <td><b>9. Freelancer directory</b><br>Profiles with skills and a verified track record.<br><img src="docs/images/freelancer-directory.jpg" alt="Freelancer directory"></td>
-<td><b>10. Demo site: Northwind Travel</b><br>The hardest test site: a menu built by JavaScript, tours loaded from a data file, and a 3-step booking form.<br><img src="docs/images/demo-site-hard.jpg" alt="Northwind Travel demo site"></td>
+<td><b>10. Demo site: Northwind Travel</b><br>The hardest test site: a Next.js + React app with client-side navigation, tours loaded in the browser and a 3-step booking wizard.<br><img src="docs/images/demo-site-hard.jpg" alt="Northwind Travel demo site"></td>
 </tr>
 </table>
 
@@ -304,7 +304,7 @@ scripts/                  local Postgres, webhook registration, migrations
 | Bakery (broken) | `…/demo-sites/bakery-v1/` | Email typo, no contact form, broken link: should **fail** |
 | Bakery (fixed) | `…/demo-sites/bakery-v2/` | Should **pass** the bakery checklist |
 | Greenleaf Dental | `…/demo-sites/intermediate/` | 7 pages, validated booking form, pricing table |
-| Northwind Travel | `…/demo-sites/hard-site/` | 19 pages in 3 levels, JS-built navigation, JSON-loaded tours with filters, 3-step booking, login, currency switcher |
+| Northwind Travel | `…/demo-sites/hard-site/` | A Next.js + React app: client-side navigation, tours loaded in the browser with filters, 3-step React booking wizard, login, currency switcher, cookie bar, pop-up |
 
 Base URL: `https://shantanushinde99.github.io/PayPal`. Ready-to-paste checklists, including items that should fail, are in [`demo-sites/README.md`](demo-sites/README.md), and screenshots for the reference-design upload are in `demo-sites/screenshots/`.
 

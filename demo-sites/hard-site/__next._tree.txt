@@ -1,0 +1,3 @@
+:HL["/PayPal/demo-sites/hard-site/_next/static/chunks/022gaf7r96f00.css","style"]
+1:[["children",{"s":"__PAGE__","h":160}]]
+0:{"b":"Ulsk9LMfv1tN9dH38uz8G","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
