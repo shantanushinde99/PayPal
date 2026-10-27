@@ -31,7 +31,7 @@ function LoginButton({ label = "Log in with PayPal", large = false }: { label?: 
 // Already logged in (e.g. a judge in a demo workspace reading /welcome): go back to the app instead of logging in again.
 function DashboardButton({ large = false }: { large?: boolean }) {
   return (
-    <Link href="/" className={`inline-flex items-center justify-center gap-2 rounded-full bg-paypal font-semibold text-white transition-colors hover:bg-[#005ea6] ${large ? "min-h-13 px-8 text-base" : "min-h-11 px-5 text-sm"}`}>
+    <Link href="/?enter=1" className={`inline-flex items-center justify-center gap-2 rounded-full bg-paypal font-semibold text-white transition-colors hover:bg-[#005ea6] ${large ? "min-h-13 px-8 text-base" : "min-h-11 px-5 text-sm"}`}>
       Your dashboard <ArrowRight aria-hidden className="size-4" />
     </Link>
   );
@@ -262,7 +262,7 @@ export function Landing({ demo = false, signedIn = false }: { demo?: boolean; si
             <p className="mx-auto mt-3 max-w-xl text-lg text-sky-100">Post a job, fund it with PayPal, and let the AI check the work. Takes a minute to set up.</p>
             <div className="mt-8 flex justify-center">
               {signedIn ? (
-                <Link href="/" className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-8 font-semibold text-brand-strong transition-colors hover:bg-sky-50">
+                <Link href="/?enter=1" className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-8 font-semibold text-brand-strong transition-colors hover:bg-sky-50">
                   Your dashboard <ArrowRight aria-hidden className="size-4" />
                 </Link>
               ) : (

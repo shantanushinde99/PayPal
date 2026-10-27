@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DemoEntryGate } from "@/components/demo-entry-gate";
 import { inArray } from "drizzle-orm";
 import { Briefcase, ChevronRight, Hourglass, Lock, MailOpen, Plus, Users, Wallet, XCircle } from "lucide-react";
 import { redirect } from "next/navigation";
@@ -110,6 +111,7 @@ export default async function Home() {
 
   return (
     <>
+      {user.isDemo && <DemoEntryGate />}
       <Header user={user} />
       <main className="mx-auto w-full max-w-5xl flex-1 space-y-8 px-4 py-8">
         <div className="flex flex-wrap items-center justify-between gap-4">

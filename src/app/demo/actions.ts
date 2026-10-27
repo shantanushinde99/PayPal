@@ -8,7 +8,7 @@ import { and, eq, ne } from "drizzle-orm";
 
 export async function startDemo() {
   if (!demoEnabled()) throw new Error("The demo isn't available right now.");
-  await signIn("demo", { redirectTo: "/" });
+  await signIn("demo", { redirectTo: "/?enter=1" });
 }
 
 // Log in as the other side of the same demo workspace (client ⇄ Priya).
@@ -19,7 +19,7 @@ export async function switchDemoSide() {
   const peers = await db.select().from(users).where(and(eq(users.demoGroup, me.demoGroup), ne(users.id, me.id)));
   const target = wantRole === "client" ? peers.find((u) => u.roles.includes("client")) : peers.find((u) => u.email.startsWith("priya."));
   if (!target) throw new Error("Demo workspace incomplete.");
-  await signIn("demo", { switch: signSwitch(target.id, me.demoGroup), redirectTo: "/" });
+  await signIn("demo", { switch: signSwitch(target.id, me.demoGroup), redirectTo: "/?enter=1" });
 }
 
 // Leave the demo and land on the public home page (the workspace is cleaned up after 48h).
