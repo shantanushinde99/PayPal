@@ -43,6 +43,30 @@ describe("checkWebsite", () => {
     expect(retry).toContain("test_form");
     expect(verdict[0].status).toBe("pass");
   });
+  it("tests forms in code when the checklist is about a form, and gives the AI the result", async () => {
+    const r = report(200); r.pages[0].forms = [{ fields: ["email[email]"], submit: "Send" }];
+    audit.auditSite.mockResolvedValue(r);
+    gen.generate.mockResolvedValueOnce(allPass);
+    await checkWebsite(opts); // requirement: "has a form"
+    const prompt = JSON.stringify(gen.generate.mock.calls[0][0].contents[0]);
+    expect(prompt).toContain("FORM TESTS (performed by code");
+    expect(prompt).toContain("form #0");
+  });
+  it("doesn't touch forms when no checklist item is about one", async () => {
+    const r = report(200); r.pages[0].forms = [{ fields: ["q[text]"], submit: "Search" }];
+    audit.auditSite.mockResolvedValue(r);
+    gen.generate.mockResolvedValueOnce(allPass);
+    await checkWebsite({ ...opts, checklist: [{ id: "c1", requirement: "Menu page lists prices" }] });
+    expect(JSON.stringify(gen.generate.mock.calls[0][0].contents[0])).not.toContain("FORM TESTS");
+  });
+  it("sends a 'fail' given without looking at anything back once", async () => {
+    audit.auditSite.mockResolvedValue(report(200));
+    const fail = call("submit_verdict", { items: [{ checklistItemId: "c1", status: "fail", reason: "no", evidence: "-" }] });
+    gen.generate.mockResolvedValueOnce(fail).mockResolvedValueOnce(fail);
+    const { verdict } = await checkWebsite(opts);
+    expect(gen.generate).toHaveBeenCalledTimes(2);
+    expect(verdict[0].status).toBe("fail"); // a second, considered fail stands
+  });
   it("accepts a second 'unsure' instead of looping", async () => {
     audit.auditSite.mockResolvedValue(report(200));
     gen.generate.mockResolvedValueOnce(unsure).mockResolvedValueOnce(unsure);
