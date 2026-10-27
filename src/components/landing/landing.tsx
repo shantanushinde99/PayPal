@@ -1,6 +1,7 @@
 import {
   ArrowRight, Bot, FlaskConical, Check, CheckCircle2, ChevronDown, Globe, Lock, ShieldCheck, Sparkles, XCircle,
 } from "lucide-react";
+import Link from "next/link";
 import { signIn } from "@/auth";
 import { startDemo } from "@/app/demo/actions";
 import { Card } from "@/components/ui";
@@ -24,6 +25,15 @@ function LoginButton({ label = "Log in with PayPal", large = false }: { label?: 
         {label} <ArrowRight aria-hidden className="size-4" />
       </SubmitButton>
     </form>
+  );
+}
+
+// Already logged in (e.g. a judge in a demo workspace reading /welcome): go back to the app instead of logging in again.
+function DashboardButton({ large = false }: { large?: boolean }) {
+  return (
+    <Link href="/" className={`inline-flex items-center justify-center gap-2 rounded-full bg-paypal font-semibold text-white transition-colors hover:bg-[#005ea6] ${large ? "min-h-13 px-8 text-base" : "min-h-11 px-5 text-sm"}`}>
+      Your dashboard <ArrowRight aria-hidden className="size-4" />
+    </Link>
   );
 }
 
@@ -53,7 +63,7 @@ const FAQ = [
   { q: "Is this live?", a: "Verifund runs on the PayPal sandbox for the PayPal AI Hackathon. No real money moves; everything else, including the AI checks, is real." },
 ];
 
-export function Landing({ demo = false }: { demo?: boolean }) {
+export function Landing({ demo = false, signedIn = false }: { demo?: boolean; signedIn?: boolean }) {
   return (
     <div className="flex min-h-full flex-col">
       <ScrollProgress />
@@ -67,7 +77,7 @@ export function Landing({ demo = false }: { demo?: boolean }) {
             <a href="#safety" className="transition-colors hover:text-white">Safety</a>
             <a href="#faq" className="transition-colors hover:text-white">FAQ</a>
           </div>
-          <LoginButton label="Log in" />
+          {signedIn ? <DashboardButton /> : <LoginButton label="Log in" />}
         </nav>
       </header>
 
@@ -86,7 +96,7 @@ export function Landing({ demo = false }: { demo?: boolean }) {
                 Verifund holds each milestone payment with PayPal while an AI agent checks the delivered work against the checklist you both agreed on. When everything is verified, the money is released automatically, with an evidence report to prove it.
               </p>
               <div className="flex flex-wrap items-center gap-4">
-                <LoginButton large label="Start with PayPal" />
+                {signedIn ? <DashboardButton large /> : <LoginButton large label="Start with PayPal" />}
                 {demo ? (
                   <form action={startDemo}>
                     <SubmitButton pending="Preparing your demo…" className="inline-flex min-h-13 cursor-pointer items-center gap-2 rounded-full border border-white/25 bg-white/10 px-6 font-semibold text-white backdrop-blur transition-colors hover:bg-white/20">
@@ -251,11 +261,17 @@ export function Landing({ demo = false }: { demo?: boolean }) {
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">Your next milestone, verified.</h2>
             <p className="mx-auto mt-3 max-w-xl text-lg text-sky-100">Post a job, fund it with PayPal, and let the AI check the work. Takes a minute to set up.</p>
             <div className="mt-8 flex justify-center">
-              <form action={async () => { "use server"; await signIn("paypal", { redirectTo: "/" }); }}>
-                <SubmitButton pending="Opening PayPal…" className="inline-flex min-h-13 cursor-pointer items-center gap-2 rounded-full bg-white px-8 font-semibold text-brand-strong transition-colors hover:bg-sky-50">
-                  Start with PayPal <ArrowRight aria-hidden className="size-4" />
-                </SubmitButton>
-              </form>
+              {signedIn ? (
+                <Link href="/" className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-8 font-semibold text-brand-strong transition-colors hover:bg-sky-50">
+                  Your dashboard <ArrowRight aria-hidden className="size-4" />
+                </Link>
+              ) : (
+                <form action={async () => { "use server"; await signIn("paypal", { redirectTo: "/" }); }}>
+                  <SubmitButton pending="Opening PayPal…" className="inline-flex min-h-13 cursor-pointer items-center gap-2 rounded-full bg-white px-8 font-semibold text-brand-strong transition-colors hover:bg-sky-50">
+                    Start with PayPal <ArrowRight aria-hidden className="size-4" />
+                  </SubmitButton>
+                </form>
+              )}
             </div>
           </Reveal>
         </section>

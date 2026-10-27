@@ -1,4 +1,5 @@
-import { ArrowLeftRight, FlaskConical, KeyRound, LogOut } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeftRight, FlaskConical, Info, KeyRound, LogOut } from "lucide-react";
 import type { User } from "@/db/schema";
 import { env } from "@/lib/env";
 import { exitDemo, switchDemoSide } from "@/app/demo/actions";
@@ -25,7 +26,10 @@ export function DemoBanner({ user }: { user: User }) {
         {!isClient && (
           <span className="inline-flex flex-wrap items-center gap-1">Proof to submit: <CopyId value={`${SITES}/bakery-v1/`} /> (broken) then <CopyId value={`${SITES}/bakery-v2/`} /> (fixed)</span>
         )}
-        <form action={exitDemo} className="ml-auto">
+        <Link href="/welcome" className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-semibold text-amber-950 underline-offset-2 hover:underline">
+          <Info aria-hidden className="size-3.5" /> About Verifund
+        </Link>
+        <form action={exitDemo}>
           <SubmitButton className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-amber-900/30 px-3 text-xs font-semibold text-amber-950 hover:bg-amber-100" pending="Leaving…">
             <LogOut aria-hidden className="size-3.5" /> Exit demo
           </SubmitButton>
