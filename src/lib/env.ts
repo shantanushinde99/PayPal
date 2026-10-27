@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const env = z
+const schema = z
   .object({
     PAYPAL_CLIENT_ID: z.string().min(1),
     PAYPAL_CLIENT_SECRET: z.string().min(1),
@@ -22,5 +22,9 @@ export const env = z
     DEMO_PAYOUT_EMAIL: z.email().optional(),
     DEMO_BUYER_EMAIL: z.email().optional(),
     DEMO_BUYER_PASSWORD: z.string().optional(),
-  })
-  .parse(process.env);
+  });
+
+// `next build` loads route modules to collect page data, where secrets don't exist (e.g. a CI build machine).
+// They are validated when the server actually starts.
+export const env: z.infer<typeof schema> =
+  process.env.NEXT_PHASE === "phase-production-build" ? (process.env as never) : schema.parse(process.env);

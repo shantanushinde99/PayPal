@@ -10,7 +10,9 @@ import { auditSite } from "./site-audit";
 import { sameSite, summarizeReport, type SiteReport } from "./site-facts";
 
 const MAX_STEPS = 8;
-const kernel = new Kernel({ apiKey: env.KERNEL_API_KEY });
+// Created on first use: `next build` loads this module without secrets.
+let kernelClient: Kernel | undefined;
+const kernel = () => (kernelClient ??= new Kernel({ apiKey: env.KERNEL_API_KEY }));
 
 const tools: FunctionDeclaration[] = [
   { name: "open_page", description: "Open a page of this site. Returns title, structure and visible text.", parameters: { type: Type.OBJECT, properties: { url: { type: Type.STRING } }, required: ["url"] } },
@@ -105,10 +107,10 @@ const MAX_REPLAY_BYTES = 20_000_000;
 
 // The replay URL dies with the KERNEL session, so keep the MP4 ourselves. It is finalised shortly after stop.
 async function saveReplay(sessionId: string, replayId: string, save: (mp4: Buffer) => Promise<void>) {
-  await kernel.browsers.replays.stop(replayId, { id_or_name: sessionId });
+  await kernel().browsers.replays.stop(replayId, { id_or_name: sessionId });
   for (let attempt = 0; ; attempt++) {
     try {
-      const mp4 = Buffer.from(await (await kernel.browsers.replays.download(replayId, { id_or_name: sessionId })).arrayBuffer());
+      const mp4 = Buffer.from(await (await kernel().browsers.replays.download(replayId, { id_or_name: sessionId })).arrayBuffer());
       if (mp4.length > MAX_REPLAY_BYTES) return console.error("replay too large, not kept", mp4.length);
       return await save(mp4);
     } catch (e) {
@@ -159,8 +161,8 @@ export async function checkWebsite(o: {
   const ids = o.checklist.map((c) => c.id);
   const site = new URL(o.url);
   const start = site.origin + site.pathname; // drop query/fragment: no room for injected text
-  const kb = await kernel.browsers.create({ stealth: true, timeout_seconds: 600 });
-  const replay = o.onReplay ? await kernel.browsers.replays.start(kb.session_id, {}).catch((e) => void console.error("replay start failed", e)) : undefined;
+  const kb = await kernel().browsers.create({ stealth: true, timeout_seconds: 600 });
+  const replay = o.onReplay ? await kernel().browsers.replays.start(kb.session_id, {}).catch((e) => void console.error("replay start failed", e)) : undefined;
   const browser = await chromium.connectOverCDP(kb.cdp_ws_url);
   try {
     const context = browser.contexts()[0] ?? (await browser.newContext());
@@ -285,6 +287,6 @@ export async function checkWebsite(o: {
   } finally {
     if (replay) await saveReplay(kb.session_id, replay.replay_id, o.onReplay!).catch((e) => console.error("replay save failed", e));
     await browser.close().catch(() => {});
-    await kernel.browsers.deleteByID(kb.session_id).catch(() => {});
+    await kernel().browsers.deleteByID(kb.session_id).catch(() => {});
   }
 }

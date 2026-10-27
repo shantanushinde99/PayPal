@@ -2,7 +2,8 @@ import { GoogleGenAI, type GenerateContentParameters } from "@google/genai";
 import { env } from "@/lib/env";
 import { RateLimiter } from "@/lib/rate-limiter";
 
-const ai = new GoogleGenAI({ apiKey: env.GEMINI_API_KEY });
+let client: GoogleGenAI | undefined; // created on first use: `next build` loads this module without secrets
+const ai = () => (client ??= new GoogleGenAI({ apiKey: env.GEMINI_API_KEY }));
 const MODELS = [env.GEMINI_MODEL_PRIMARY, env.GEMINI_MODEL_FALLBACK];
 export const CHAT_MODELS = [env.GEMINI_MODEL_FALLBACK, env.GEMINI_MODEL_PRIMARY];
 const limiter = new RateLimiter(14, 480);
@@ -31,7 +32,7 @@ export async function generate(req: Omit<GenerateContentParameters, "model">, mo
     }
     limiter.record(model);
     try {
-      return await ai.models.generateContent({ ...req, model });
+      return await ai().models.generateContent({ ...req, model });
     } catch (e) {
       if (!shouldTryOtherModel(e)) throw e;
       exhausted.add(model);
