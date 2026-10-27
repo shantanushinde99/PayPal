@@ -167,6 +167,7 @@ export async function checkWebsite(o: {
     if (o.reference) parts.push({ text: "REFERENCE DESIGN provided by the client:" }, { inlineData: o.reference });
     const contents: Content[] = [{ role: "user", parts }];
 
+    let retried = false;
     for (let step = 0; step < MAX_STEPS; step++) {
       const res = await generate({ contents, config: { systemInstruction: SYSTEM, tools: [{ functionDeclarations: tools }] } });
       const call = res.functionCalls?.[0];
@@ -178,7 +179,18 @@ export async function checkWebsite(o: {
       const args = (call.args ?? {}) as Record<string, string>;
 
       if (call.name === "submit_verdict") {
-        return { report, verdict: normalizeVerdict(ids, (call.args as { items?: unknown[] })?.items ?? []) };
+        const verdict = normalizeVerdict(ids, (call.args as { items?: unknown[] })?.items ?? []);
+        const unsure = verdict.filter((v) => v.status === "unsure").map((v) => v.checklistItemId);
+        // Small models sometimes answer "unsure" instead of looking. Send it back once, while steps remain.
+        if (unsure.length && !retried && step < MAX_STEPS - 2) {
+          retried = true;
+          await o.log("Some items need a closer look. Checking them in the browser…");
+          contents.push({ role: "user", parts: [{ functionResponse: { name: call.name, response: { result:
+            `Not accepted yet: ${unsure.join(", ")} ${unsure.length === 1 ? "is" : "are"} unsure. Check ${unsure.length === 1 ? "it" : "them"} with the tools ` +
+            "first (open_page, click, test_form for anything about a form working, resize_to_phone), then call submit_verdict again." } } }] });
+          continue;
+        }
+        return { report, verdict };
       }
 
       let result: string;

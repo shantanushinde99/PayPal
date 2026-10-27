@@ -30,7 +30,26 @@ beforeEach(() => {
   page.url.mockReset(); page.url.mockReturnValue("https://site.test/");
 });
 
+const unsure = call("submit_verdict", { items: [{ checklistItemId: "c1", status: "unsure", reason: "can't tell", evidence: "-" }] });
+
 describe("checkWebsite", () => {
+  it("sends an 'unsure' verdict back once so the AI checks with its tools", async () => {
+    audit.auditSite.mockResolvedValue(report(200));
+    gen.generate.mockResolvedValueOnce(unsure).mockResolvedValueOnce(allPass);
+    const { verdict } = await checkWebsite(opts);
+    expect(gen.generate).toHaveBeenCalledTimes(2);
+    const retry = JSON.stringify(gen.generate.mock.calls[1][0].contents.filter((c: { role: string }) => c.role === "user").at(-1));
+    expect(retry).toContain("c1");
+    expect(retry).toContain("test_form");
+    expect(verdict[0].status).toBe("pass");
+  });
+  it("accepts a second 'unsure' instead of looping", async () => {
+    audit.auditSite.mockResolvedValue(report(200));
+    gen.generate.mockResolvedValueOnce(unsure).mockResolvedValueOnce(unsure);
+    const { verdict } = await checkWebsite(opts);
+    expect(gen.generate).toHaveBeenCalledTimes(2);
+    expect(verdict[0].status).toBe("unsure");
+  });
   it("fails every item without asking the AI when the site is unreachable", async () => {
     audit.auditSite.mockResolvedValue(report(0));
     const { verdict } = await checkWebsite(opts);
