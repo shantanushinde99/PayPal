@@ -1,7 +1,7 @@
-import { ArrowLeftRight, FlaskConical, KeyRound } from "lucide-react";
+import { ArrowLeftRight, FlaskConical, KeyRound, LogOut } from "lucide-react";
 import type { User } from "@/db/schema";
 import { env } from "@/lib/env";
-import { switchDemoSide } from "@/app/demo/actions";
+import { exitDemo, switchDemoSide } from "@/app/demo/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { CopyId } from "@/components/copy-id";
 
@@ -25,6 +25,11 @@ export function DemoBanner({ user }: { user: User }) {
         {!isClient && (
           <span className="inline-flex flex-wrap items-center gap-1">Proof to submit: <CopyId value={`${SITES}/bakery-v1/`} /> (broken) then <CopyId value={`${SITES}/bakery-v2/`} /> (fixed)</span>
         )}
+        <form action={exitDemo} className="ml-auto">
+          <SubmitButton className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border border-amber-900/30 px-3 text-xs font-semibold text-amber-950 hover:bg-amber-100" pending="Leaving…">
+            <LogOut aria-hidden className="size-3.5" /> Exit demo
+          </SubmitButton>
+        </form>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 "use server";
-import { signIn } from "@/auth";
+import { signIn, signOut } from "@/auth";
 import { demoEnabled, signSwitch } from "@/lib/demo";
 import { requireUser } from "@/lib/session";
 import { db } from "@/db";
@@ -20,4 +20,9 @@ export async function switchDemoSide() {
   const target = wantRole === "client" ? peers.find((u) => u.roles.includes("client")) : peers.find((u) => u.email.startsWith("priya."));
   if (!target) throw new Error("Demo workspace incomplete.");
   await signIn("demo", { switch: signSwitch(target.id, me.demoGroup), redirectTo: "/" });
+}
+
+// Leave the demo and land on the public home page (the workspace is cleaned up after 48h).
+export async function exitDemo() {
+  await signOut({ redirectTo: "/" });
 }
