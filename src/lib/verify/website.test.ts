@@ -14,7 +14,7 @@ vi.mock("@/lib/gemini", () => gen);
 vi.mock("./site-audit", () => audit);
 vi.mock("@onkernel/sdk", () => ({ default: class { browsers = { create: async () => ({ cdp_ws_url: "ws", session_id: "s" }), deleteByID: async () => {} }; } }));
 vi.mock("playwright-core", () => ({ chromium: { connectOverCDP: async () => ({ contexts: () => [{ pages: () => [page] }], close: async () => {} }) } }));
-import { checkWebsite } from "./website";
+import { checkWebsite, pickForms } from "./website";
 
 const report = (status: number, offsite = false): SiteReport => ({
   start: "https://site.test/", truncated: false, links: [],
@@ -129,5 +129,23 @@ describe("checkWebsite", () => {
     await checkWebsite(opts);
     const reply = gen.generate.mock.calls[1][0].contents.at(-2).parts[0].functionResponse.response.result; // -1 is the model turn appended afterwards
     expect(reply).toMatch(/left the site/i);
+  });
+});
+
+describe("pickForms", () => {
+  const page = (path: string, forms: { fields: string[]; submit: string }[]) => ({ ...report(200).pages[0], url: "https://site.test" + path, title: path, forms });
+  const newsletter = { fields: ["email[email]"], submit: "Subscribe" }, search = { fields: ["region[select]", "max[select]", "sort[select]"], submit: "Find tours" };
+  const contact = { fields: ["name[text]", "email[email]", "topic[select]", "message[textarea]"], submit: "Send message" };
+  const site = { ...report(200), pages: [page("/", [search, newsletter]), page("/tours/", [newsletter]), page("/contact/", [contact, newsletter])] };
+
+  it("tests the form the checklist is about, not the first one it finds", () => {
+    const picked = pickForms(site, ["The contact form can be submitted and shows a confirmation"]);
+    expect(new URL(picked[0].p.url).pathname).toBe("/contact/");
+    expect(picked[0].index).toBe(0);
+  });
+  it("counts a form repeated on every page once", () => {
+    const picked = pickForms(site, ["Visitors can subscribe to the newsletter"]);
+    expect(picked.filter((x) => x.f.submit === "Subscribe")).toHaveLength(1);
+    expect(picked[0].f.submit).toBe("Subscribe");
   });
 });

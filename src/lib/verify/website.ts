@@ -86,12 +86,16 @@ async function pageText(page: Page) {
 
 const shot = async (page: Page) => (await page.screenshot({ type: "jpeg", quality: 50 })).toString("base64");
 
+const CONSENT = /^(accept( all)?( cookies)?|agree|i agree|allow( all)?|got it|ok)$/i;
+
 async function fillAndSubmit(page: Page, formIndex: number) {
+  // Cookie/consent bars often cover the submit button: dismiss one if it's there.
+  await page.getByRole("button", { name: CONSENT }).first().click({ timeout: 1_500 }).catch(() => {});
   const form = page.locator("form").nth(formIndex);
   const fields = form.locator("input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select");
   for (let i = 0, n = await fields.count(); i < n; i++) {
     const f = fields.nth(i);
-    const tag = (await f.evaluate("e => e.tagName.toLowerCase()") as string);
+    const tag = await f.evaluate((e) => e.tagName.toLowerCase()); // a function, not a string: Playwright doesn't call strings
     const type = (await f.getAttribute("type")) ?? tag;
     try {
       if (type === "checkbox" || type === "radio") await f.check({ timeout: 2_000 });
@@ -99,7 +103,12 @@ async function fillAndSubmit(page: Page, formIndex: number) {
       else await f.fill(TEST_VALUES[type] ?? TEST_TEXT, { timeout: 2_000 });
     } catch { /* optional or unusual field */ }
   }
-  await form.locator("button[type=submit], input[type=submit], button:not([type])").first().click({ timeout: 5_000 });
+  try {
+    await form.locator("button[type=submit], input[type=submit], button:not([type])").first().click({ timeout: 5_000 });
+  } catch {
+    // Still covered (or no visible button): submit the way the browser would; React's onSubmit still runs.
+    await form.evaluate((f: HTMLFormElement) => (f.requestSubmit ? f.requestSubmit() : f.submit()));
+  }
   await page.waitForTimeout(2_500);
 }
 
@@ -123,26 +132,41 @@ async function saveReplay(sessionId: string, replayId: string, save: (mp4: Buffe
 const ABOUT_FORMS = /form|submit|sign[ -]?up|subscribe|book(ing)?\b|enquir|newsletter/i;
 const MAX_FORM_TESTS = 3;
 
-// When the checklist is about forms, code submits each form with test data and reports what appeared:
+const STOP = new Set(["form", "forms", "submitted", "submit", "shows", "show", "confirmation", "page", "with", "that", "there", "have", "works", "working", "should", "their", "your", "when", "after"]);
+
+// Picks the forms the checklist is about: words from form items ("contact" in "The contact form…") matched against
+// each form's page, fields and button, then more fields first. A form repeated on every page (footer newsletter) counts once.
+export function pickForms(report: SiteReport, requirements: string[], max = MAX_FORM_TESTS) {
+  const words = [...new Set(requirements.filter((r) => ABOUT_FORMS.test(r)).flatMap((r) => r.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => !STOP.has(w)))];
+  const seen = new Set<string>();
+  return report.pages.filter((p) => !p.offsite).flatMap((p) => p.forms.map((f, index) => ({ p, f, index })))
+    .filter(({ f }) => { const sig = f.fields.join("|") + "→" + f.submit; return !seen.has(sig) && seen.add(sig); })
+    .map((x) => { const hay = `${new URL(x.p.url).pathname} ${x.p.title} ${x.f.fields.join(" ")} ${x.f.submit}`.toLowerCase();
+      return { ...x, score: words.filter((w) => hay.includes(w)).length * 10 + x.f.fields.length }; })
+    .sort((a, b) => b.score - a.score).slice(0, max);
+}
+
+// When the checklist is about forms, code submits the relevant forms with test data and reports what appeared:
 // the AI gets this as a measured fact instead of deciding whether to test.
-async function testForms(page: Page, report: SiteReport, start: string, log: (m: string, img?: string) => Promise<void>) {
+async function testForms(page: Page, report: SiteReport, start: string, requirements: string[], log: (m: string, img?: string) => Promise<void>) {
   const facts: string[] = [];
   const text = async () => (await page.locator("body").innerText().catch(() => "")).split("\n").map((l) => l.trim()).filter(Boolean);
-  for (const p of report.pages.filter((x) => !x.offsite && x.forms.length).slice(0, MAX_FORM_TESTS)) {
-    const where = new URL(p.url).pathname;
+  for (const { p, f, index } of pickForms(report, requirements)) {
+    const where = `${new URL(p.url).pathname} form #${index} (${f.submit ? `"${f.submit}"` : "no button text"})`;
     try {
       await page.goto(p.url, { waitUntil: "domcontentloaded", timeout: 20_000 });
       if (!sameSite(page.url(), start)) continue; // never fill in someone else's form
+      await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => {}); // client-rendered forms
       const before = new Set(await text());
-      await log(`Testing the form on ${where} with test data`);
-      await fillAndSubmit(page, 0);
+      await log(`Testing ${where} with test data`);
+      await fillAndSubmit(page, index);
       const after = page.url();
       const appeared = (await text()).filter((l) => !before.has(l)).slice(0, 4).join(" / ").slice(0, 300);
-      await log(`Form result on ${where}`, await shot(page));
-      facts.push(`- ${where} form #0: submitted with test data. URL after: ${sameSite(after, start) ? new URL(after).pathname : new URL(after).hostname + " (form service)"}. ` +
+      await log(`Form result: ${where}`, await shot(page));
+      facts.push(`- ${where}: submitted with test data. URL after: ${sameSite(after, start) ? new URL(after).pathname : new URL(after).hostname + " (form service)"}. ` +
         (appeared ? `New text that appeared: "${appeared}".` : "No new text appeared on the page."));
     } catch (e) {
-      facts.push(`- ${where} form #0: could not be submitted (${(e as Error).message.split("\n")[0].slice(0, 120)}).`);
+      facts.push(`- ${where}: could not be submitted (${(e as Error).message.split("\n")[0].slice(0, 120)}).`);
     }
   }
   return facts;
@@ -191,7 +215,7 @@ export async function checkWebsite(o: {
       await o.log(`Site ownership confirmed (${found}).`);
     } else await o.log("Verifund sample site: ownership check skipped.");
 
-    const formFacts = o.checklist.some((c) => ABOUT_FORMS.test(c.requirement)) ? await testForms(page, report, start, o.log) : [];
+    const formFacts = o.checklist.some((c) => ABOUT_FORMS.test(c.requirement)) ? await testForms(page, report, start, o.checklist.map((c) => c.requirement), o.log) : [];
     const parts: Part[] = [{ text: `Website: "${start}" (only this site may be visited)\nChecklist (use these ids):\n${
       o.checklist.map((c) => `- ${c.id}: ${c.requirement}`).join("\n")}\n\n${summarizeReport(report)}${
       formFacts.length ? `\n\nFORM TESTS (performed by code, reliable):\n${formFacts.join("\n")}` : ""}` }];
