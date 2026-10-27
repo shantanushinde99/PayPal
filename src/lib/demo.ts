@@ -18,7 +18,7 @@ export async function createDemoWorkspace() {
   const base = { isDemo: true, demoGroup: group, onboardedAt: new Date(), payoutEmail: env.DEMO_PAYOUT_EMAIL ?? null };
   const person = (key: string, p: Partial<typeof users.$inferInsert>) => ({ ...base, email: `${key}.${group}@demo.verifund.app`, ...p });
   const [client, priya, , mei] = await db.insert(users).values([
-    person("alex", { roles: ["client"], displayName: "Alex Rivera", company: "Sunrise Bakery" }),
+    person("leon", { roles: ["client"], displayName: "Leon Kennedy", company: "Sunrise Bakery" }),
     person("priya", { roles: ["freelancer"], displayName: "Priya Shah", headline: "Web developer · small-business sites", skills: ["Next.js", "Tailwind", "SEO", "Accessibility"], bio: "I build fast, accessible websites for local businesses and hand over everything you need to run them.", portfolioUrl: "https://shantanushinde99.github.io/PayPal/demo-sites/bakery-v2/" }),
     person("diego", { roles: ["freelancer"], displayName: "Diego Morales", headline: "Painter & decorator", skills: ["Interior painting", "Plastering", "Wallpaper"], bio: "Ten years of tidy, on-time interior work. Before/after photos for every job." }),
     person("mei", { roles: ["freelancer"], displayName: "Mei Chen", headline: "Brand & web designer", skills: ["Branding", "Figma", "Menus", "Webflow"], bio: "Identity, menus and websites for cafés and restaurants." }),

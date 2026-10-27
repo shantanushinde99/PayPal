@@ -173,7 +173,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
           </div>
         </div>
 
-        <StateBanner m={m} currency={job.currency} freelancer={job.freelancerEmail} blocked={blocked} />
+        <StateBanner m={m} currency={job.currency} freelancer={data.freelancer.name} blocked={blocked} />
         {m.paypalDisputeId && (
           <Banner tone="bg-red-50 text-red-900" icon={<Scale aria-hidden className="size-5 shrink-0" />}>
             <p className="font-semibold">PayPal dispute {m.paypalDisputeId}: {m.paypalDisputeStatus?.replaceAll("_", " ").toLowerCase()}</p>
