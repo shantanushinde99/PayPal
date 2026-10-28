@@ -53,3 +53,7 @@ form input,form select,form textarea{font:inherit;padding:11px;border:1px solid 
 .modal-bg{position:fixed;inset:0;background:#0b1f3a99;display:grid;place-items:center;z-index:60;padding:20px}
 .modal{width:100%;max-width:480px}
 main{min-height:60vh}
+/* Form fields never grow wider than their column (long <select> options pushed the booking page off a phone screen). */
+form .field{min-width:0}
+form input,form select,form textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box}
+form input[type=checkbox],form input[type=radio]{width:auto}
