@@ -187,13 +187,15 @@ export async function checkWebsite(o: {
   const start = site.origin + site.pathname; // drop query/fragment: no room for injected text
   const kb = await kernel().browsers.create({ stealth: true, timeout_seconds: 600 });
   const replay = o.onReplay ? await kernel().browsers.replays.start(kb.session_id, {}).catch((e) => void console.error("replay start failed", e)) : undefined;
-  const browser = await chromium.connectOverCDP(kb.cdp_ws_url);
+  let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
   try {
+    // Inside the try: if connecting fails, the KERNEL browser is still deleted below instead of idling for 10 minutes.
+    browser = await chromium.connectOverCDP(kb.cdp_ws_url, { timeout: 45_000 });
     const context = browser.contexts()[0] ?? (await browser.newContext());
     const page = context.pages()[0] ?? (await context.newPage());
     await page.setViewportSize({ width: 1280, height: 800 });
 
-    const report = await auditSite(context, page, start, o.log);
+    const report = await auditSite(context, page, start, o.log, { focus: o.checklist.map((c) => c.requirement) });
     const home = report.pages[0];
     if (!home || home.offsite || home.status < 200 || home.status >= 300) {
       const reason = home?.offsite
@@ -310,7 +312,7 @@ export async function checkWebsite(o: {
     return { report, verdict: normalizeVerdict(ids, []) };
   } finally {
     if (replay) await saveReplay(kb.session_id, replay.replay_id, o.onReplay!).catch((e) => console.error("replay save failed", e));
-    await browser.close().catch(() => {});
+    await browser?.close().catch(() => {});
     await kernel().browsers.deleteByID(kb.session_id).catch(() => {});
   }
 }

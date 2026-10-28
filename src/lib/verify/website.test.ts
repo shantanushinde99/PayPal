@@ -12,8 +12,9 @@ const audit = vi.hoisted(() => ({ auditSite: vi.fn() }));
 vi.mock("@/lib/env", () => ({ env: { KERNEL_API_KEY: "k" } }));
 vi.mock("@/lib/gemini", () => gen);
 vi.mock("./site-audit", () => audit);
-vi.mock("@onkernel/sdk", () => ({ default: class { browsers = { create: async () => ({ cdp_ws_url: "ws", session_id: "s" }), deleteByID: async () => {} }; } }));
-vi.mock("playwright-core", () => ({ chromium: { connectOverCDP: async () => ({ contexts: () => [{ pages: () => [page] }], close: async () => {} }) } }));
+const kb = vi.hoisted(() => ({ deleteByID: vi.fn(async () => {}), connect: vi.fn() }));
+vi.mock("@onkernel/sdk", () => ({ default: class { browsers = { create: async () => ({ cdp_ws_url: "ws", session_id: "s" }), deleteByID: kb.deleteByID }; } }));
+vi.mock("playwright-core", () => ({ chromium: { connectOverCDP: (...a: unknown[]) => kb.connect(...a) } }));
 import { checkWebsite, pickForms } from "./website";
 
 const report = (status: number, offsite = false): SiteReport => ({
@@ -26,6 +27,8 @@ const allPass = call("submit_verdict", { items: [{ checklistItemId: "c1", status
 const opts = { url: "https://site.test/", checklist: [{ id: "c1", requirement: "has a form" }], log: async () => {} };
 
 beforeEach(() => {
+  kb.deleteByID.mockClear(); kb.connect.mockReset();
+  kb.connect.mockImplementation(async () => ({ contexts: () => [{ pages: () => [page] }], close: async () => {} }));
   gen.generate.mockReset(); page.goto.mockReset(); page.goto.mockResolvedValue(null); audit.auditSite.mockReset(); page.locator.mockClear();
   page.url.mockReset(); page.url.mockReturnValue("https://site.test/");
 });
@@ -33,6 +36,11 @@ beforeEach(() => {
 const unsure = call("submit_verdict", { items: [{ checklistItemId: "c1", status: "unsure", reason: "can't tell", evidence: "-" }] });
 
 describe("checkWebsite", () => {
+  it("deletes the cloud browser even when connecting to it fails", async () => {
+    kb.connect.mockRejectedValueOnce(new Error("connectOverCDP: Timeout 45000ms exceeded"));
+    await expect(checkWebsite(opts)).rejects.toThrow(/Timeout/);
+    expect(kb.deleteByID).toHaveBeenCalledWith("s");
+  });
   it("sends an 'unsure' verdict back once so the AI checks with its tools", async () => {
     audit.auditSite.mockResolvedValue(report(200));
     gen.generate.mockResolvedValueOnce(unsure).mockResolvedValueOnce(allPass);
