@@ -6,6 +6,8 @@ import type { User } from "@/db/schema";
 import { currentView } from "@/lib/view";
 import { setView } from "@/app/view/actions";
 import { DemoBanner } from "@/components/demo-banner";
+import { Suspense } from "react";
+import { NavProgress } from "@/components/nav-progress";
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
@@ -22,6 +24,8 @@ export async function Header({ user }: { user?: User }) {
   const view = user ? await currentView(user) : null;
   const both = user && user.roles.length > 1;
   return (
+    <>
+    <Suspense fallback={null}><NavProgress /></Suspense>
     <header className="sticky top-0 z-10 border-b border-line bg-white/90 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-2 px-4">
         <Logo />
@@ -58,5 +62,6 @@ export async function Header({ user }: { user?: User }) {
       </div>
       {user && <DemoBanner user={user} />}
     </header>
+    </>
   );
 }

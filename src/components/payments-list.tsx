@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { BadgeCheck, CheckCircle2, Lock, Undo2 } from "lucide-react";
 import type { PaymentItem } from "@/lib/payment-history";
 import { captureStatus } from "@/lib/paypal";
@@ -12,15 +13,20 @@ const TONE = {
   returned: { Icon: Undo2, circle: "bg-slate-100 text-slate-600", amount: "text-slate-600", chip: "bg-slate-100 text-slate-700" },
 };
 
-// Google Pay–style history. Completed payments are re-checked with PayPal for a "Confirmed" badge.
-export async function PaymentsList({ items, showJob = false, empty }: { items: PaymentItem[]; showJob?: boolean; empty: string }) {
+const BADGE = <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><BadgeCheck aria-hidden className="size-3.5" /> Confirmed by PayPal</span>;
+
+// Asks PayPal live only for captures the webhook hasn't confirmed yet. Streams in, so it never holds up the list.
+async function LiveConfirmation({ paypalId }: { paypalId: string }) {
+  return (await captureStatus(paypalId)) === "COMPLETED" ? BADGE : null;
+}
+
+// Google Pay–style history. Completed payments show a "Confirmed by PayPal" badge.
+export function PaymentsList({ items, showJob = false, empty }: { items: PaymentItem[]; showJob?: boolean; empty: string }) {
   if (!items.length) return <Card className="p-6 text-center text-ink-soft">{empty}</Card>;
-  // The webhook confirms most movements; ask PayPal live only for captures it hasn't confirmed yet.
-  const confirmed = await Promise.all(items.map((p) => (p.confirmedAt ? "COMPLETED" : p.kind === "paid" || p.kind === "captured" ? captureStatus(p.paypalId) : null)));
   return (
     <Card>
       <ul className="divide-y divide-line">
-        {items.map((p, i) => {
+        {items.map((p) => {
           const t = TONE[p.view.tone];
           return (
             <li key={p.id} className="flex items-start gap-3 p-4">
@@ -30,9 +36,7 @@ export async function PaymentsList({ items, showJob = false, empty }: { items: P
                 <p className="truncate text-sm text-ink-soft">{showJob ? `${p.jobTitle} · ` : ""}{p.milestoneTitle} · <LocalTime date={p.createdAt} /></p>
                 <div className="flex flex-wrap items-center gap-x-2">
                   <CopyId value={p.paypalId} />
-                  {confirmed[i] === "COMPLETED" && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700"><BadgeCheck aria-hidden className="size-3.5" /> Confirmed by PayPal</span>
-                  )}
+                  {p.confirmedAt ? BADGE : (p.kind === "paid" || p.kind === "captured") && <Suspense fallback={null}><LiveConfirmation paypalId={p.paypalId} /></Suspense>}
                 </div>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1">

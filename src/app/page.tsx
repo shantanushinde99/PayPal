@@ -79,16 +79,19 @@ export default async function Home() {
   const user = await currentUser();
   if (!user) return <Landing demo={demoEnabled()} />;
   if (!user.onboardedAt) redirect("/onboarding");
-  const view = await currentView(user);
-
-  const all = await db.select().from(jobs).where(myJobsWhere(user));
-  const ms = all.length ? await db.select().from(milestones).where(inArray(milestones.jobId, all.map((j) => j.id))) : [];
+  // Independent lookups run together: each is a round trip to the database.
+  const [view, all, recent] = await Promise.all([
+    currentView(user), db.select().from(jobs).where(myJobsWhere(user)), loadPaymentsForUser(user, { limit: 8 }),
+  ]);
   const people = [...new Set(all.flatMap((j) => [j.clientId, j.freelancerId ?? ""]).filter(Boolean))];
-  const names: Names = new Map((people.length ? await db.select({ id: users.id, n: users.displayName, e: users.email }).from(users).where(inArray(users.id, people)) : []).map((u) => [u.id, u.n ?? u.e]));
+  const [ms, named] = await Promise.all([
+    all.length ? db.select().from(milestones).where(inArray(milestones.jobId, all.map((j) => j.id))) : [],
+    people.length ? db.select({ id: users.id, n: users.displayName, e: users.email }).from(users).where(inArray(users.id, people)) : [],
+  ]);
+  const names: Names = new Map(named.map((u) => [u.id, u.n ?? u.e]));
   const currencyOf = new Map(all.map((j) => [j.id, j.currency]));
   const sum = (jobIds: Set<string>, pred: (m: Milestone) => boolean) =>
     sumByCurrency(ms.filter((m) => jobIds.has(m.jobId) && pred(m)).map((m) => ({ amountMinor: m.amountMinor, currency: currencyOf.get(m.jobId)! })));
-  const recent = await loadPaymentsForUser(user, { limit: 8 });
 
   const side = all.filter((j) => (view === "client" ? j.clientId === user.id : jobRole(j, user) === "freelancer"));
   const ids = new Set(side.map((j) => j.id));

@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/session";
 import { loadInsights } from "@/lib/insights";
 import { env } from "@/lib/env";
 import { Header } from "@/components/header";
-import { InsightsStudio } from "./studio";
+import { InsightsStudioLazy } from "./studio-lazy";
 
 export default async function Insights() {
   const user = await requireUser();
@@ -21,7 +21,7 @@ export default async function Insights() {
         </div>
         {data.milestones.length ? (
           <div className="h-[calc(100vh-11rem)] min-h-[640px] overflow-hidden rounded-xl border border-line bg-white">
-            <InsightsStudio data={data} licenseKey={env.AG_STUDIO_LICENSE_KEY} />
+            <InsightsStudioLazy data={data} licenseKey={env.AG_STUDIO_LICENSE_KEY} />
           </div>
         ) : (
           <p className="rounded-xl border border-line bg-white p-8 text-center text-ink-soft">No jobs yet. Insights appear once you have a milestone.</p>

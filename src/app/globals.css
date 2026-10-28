@@ -43,3 +43,6 @@ body {
   background: radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(3, 105, 161, 0.10), transparent 60%);
 }
 .spot:hover::before { opacity: 1; }
+
+/* Navigation progress bar (components/nav-progress.tsx) */
+@keyframes navbar { 0% { transform: translateX(-100%); } 100% { transform: translateX(300%); } }

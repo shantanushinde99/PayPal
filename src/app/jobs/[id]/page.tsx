@@ -355,8 +355,8 @@ function Invitation({ data }: { data: Loaded }) {
 
 export default async function JobPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
-  const data = await loadJobForUser((await params).id, user);
-  const payments = await loadPaymentsForUser(user, { jobId: data.job.id });
+  const { id } = await params;
+  const [data, payments] = await Promise.all([loadJobForUser(id, user), loadPaymentsForUser(user, { jobId: id })]);
   const { job, role, milestones, client, freelancer } = data;
   const total = milestones.reduce((s, m) => s + m.amountMinor, 0);
   const paid = milestones.filter((m) => m.state === "paid_out").reduce((s, m) => s + m.amountMinor, 0);

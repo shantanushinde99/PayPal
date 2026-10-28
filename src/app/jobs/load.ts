@@ -10,31 +10,38 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
   const role = jobRole(job, user);
   if (!role) notFound();
 
-  const ms = await db.select().from(milestones).where(eq(milestones.jobId, jobId)).orderBy(asc(milestones.position));
+  // Three waves of parallel queries instead of nine one-by-one round trips to the database.
+  const cols = { email: users.email, displayName: users.displayName, company: users.company, headline: users.headline, isDemo: users.isDemo };
+  const [ms, [client], [free]] = await Promise.all([
+    db.select().from(milestones).where(eq(milestones.jobId, jobId)).orderBy(asc(milestones.position)),
+    db.select(cols).from(users).where(eq(users.id, job.clientId)),
+    job.freelancerId ? db.select(cols).from(users).where(eq(users.id, job.freelancerId)) : Promise.resolve([]),
+  ]);
   const ids = ms.map((m) => m.id);
-  const [items, subs, evs] = ids.length
+  const [items, subs, evs, ds] = ids.length
     ? await Promise.all([
         db.select().from(checklistItems).where(inArray(checklistItems.milestoneId, ids)).orderBy(asc(checklistItems.position)),
         // Not the audit report: it carries per-page screenshots and this page polls while checks run.
         db.select({ id: submissions.id, milestoneId: submissions.milestoneId, url: submissions.url, beforePhoto: submissions.beforePhoto, afterPhoto: submissions.afterPhoto, createdAt: submissions.createdAt })
           .from(submissions).where(inArray(submissions.milestoneId, ids)).orderBy(desc(submissions.createdAt)),
         db.select().from(events).where(inArray(events.milestoneId, ids)).orderBy(asc(events.createdAt)),
+        db.select().from(disputes).where(inArray(disputes.milestoneId, ids)),
       ])
-    : [[], [], []];
+    : [[], [], [], []];
   const latest = ids.map((id) => subs.find((s) => s.milestoneId === id));
   const subIds = latest.flatMap((s) => (s ? [s.id] : []));
-  const verdicts = subIds.length ? await db.select().from(verdictItems).where(inArray(verdictItems.submissionId, subIds)) : [];
-  const recorded = subIds.length ? (await db.select({ id: replays.submissionId }).from(replays).where(inArray(replays.submissionId, subIds))).map((r) => r.id) : [];
-  const ds = ids.length ? await db.select().from(disputes).where(inArray(disputes.milestoneId, ids)) : [];
+  const [verdicts, recorded] = subIds.length
+    ? await Promise.all([
+        db.select().from(verdictItems).where(inArray(verdictItems.submissionId, subIds)),
+        db.select({ id: replays.submissionId }).from(replays).where(inArray(replays.submissionId, subIds)).then((r) => r.map((x) => x.id)),
+      ])
+    : [[], []];
 
   // Demo accounts' login emails are internal; don't show them.
   const person = (u?: { email: string; displayName: string | null; company: string | null; headline: string | null; isDemo: boolean }) => {
     const email = u?.isDemo ? "" : (u?.email ?? job.freelancerEmail);
     return { name: u?.displayName ?? (email || "Freelancer"), email, detail: u?.company ?? u?.headline ?? null };
   };
-  const cols = { email: users.email, displayName: users.displayName, company: users.company, headline: users.headline, isDemo: users.isDemo };
-  const [client] = await db.select(cols).from(users).where(eq(users.id, job.clientId));
-  const [free] = job.freelancerId ? await db.select(cols).from(users).where(eq(users.id, job.freelancerId)) : [];
 
   return {
     job, role, clientEmail: client?.email ?? "", client: person(client), freelancer: person(free),
