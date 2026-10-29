@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { MotionConfig, animate, motion, useInView } from "motion/react";
-import { Camera, Check, Lightbulb, MoveHorizontal, Palette, RotateCcw, ScanSearch, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Camera, Check, Lightbulb, Palette, RotateCcw, ScanSearch, ShieldCheck, Sparkles, X } from "lucide-react";
 
 // Track the cursor per tile for the .spot glow (pure CSS vars, no re-render).
 function onSpot(e: PointerEvent<HTMLElement>) {
@@ -64,39 +64,79 @@ function AuditFeed() {
   );
 }
 
-// 2. Before/after comparison, dragged with a real range input (keyboard + touch friendly).
-function BeforeAfter() {
-  const [pos, setPos] = useState(55);
+// 2. How the AI checks photo proof: same place first, then each checklist item from what's visible.
+type Shot = "before" | "after" | "elsewhere";
+function Wall({ shot }: { shot: Shot }) {
+  const other = shot === "elsewhere";
   return (
-    <div className="space-y-3">
-      <div className="relative aspect-[4/5] overflow-hidden rounded-2xl border border-line select-none">
-        {/* after: clean wall */}
-        <div className="absolute inset-0 bg-[#f6f3ec]">
-          <div className="absolute bottom-0 h-[14%] w-full bg-[#8b6a4e]" />
-          <div className="absolute bottom-[14%] h-1.5 w-full bg-white" />
-        </div>
-        {/* before: stained wall, clipped by the slider */}
-        <div className="absolute inset-0" style={{ clipPath: `inset(0 ${100 - pos}% 0 0)` }}>
-          <div className="absolute inset-0 bg-[#d8ccb6] bg-[radial-gradient(30%_22%_at_30%_35%,#a8977a_0%,transparent_70%),radial-gradient(22%_18%_at_68%_58%,#b3a385_0%,transparent_70%),radial-gradient(18%_14%_at_45%_75%,#9f8e72_0%,transparent_70%)]" />
-          <div className="absolute bottom-0 h-[14%] w-full bg-[#8b6a4e]" />
-          <div className="absolute bottom-[14%] h-1.5 w-full bg-[#c9bfae]" />
-        </div>
-        <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2 py-0.5 text-xs font-semibold text-white">Before</span>
-        <span className="absolute right-3 top-3 rounded-full bg-black/55 px-2 py-0.5 text-xs font-semibold text-white">After</span>
-        <div aria-hidden className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.15)]" style={{ left: `${pos}%` }}>
-          <span className="absolute top-1/2 left-1/2 grid size-9 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-white text-ink shadow-lg"><MoveHorizontal className="size-4" /></span>
-        </div>
-        <input
-          type="range" min={0} max={100} value={pos} onChange={(e) => setPos(Number(e.target.value))}
-          aria-label="Compare before and after photos"
-          className="absolute inset-0 h-full w-full cursor-ew-resize opacity-0"
-        />
-      </div>
-      <div className="flex flex-wrap gap-1.5 text-xs font-medium">
-        {["Same room", "Stains covered", "No paint splashes"].map((c) => (
-          <span key={c} className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 text-emerald-800"><Check aria-hidden className="size-3" />{c}</span>
+    <div className={`relative aspect-[4/5] overflow-hidden rounded-xl border border-line ${other ? "bg-[#cfe0e8]" : shot === "before" ? "bg-[#d8ccb6]" : "bg-[#f6f3ec]"}`}>
+      {shot === "before" && <div className="absolute inset-0 bg-[radial-gradient(30%_22%_at_30%_35%,#a8977a_0%,transparent_70%),radial-gradient(22%_18%_at_68%_58%,#b3a385_0%,transparent_70%)]" />}
+      {/* window: same spot in both real photos, elsewhere in the other room */}
+      <div className={`absolute top-[14%] h-[28%] w-[26%] rounded-sm border-2 border-white bg-sky-200/70 ${other ? "left-[12%]" : "right-[14%]"}`} />
+      <div className={`absolute bottom-0 w-full ${other ? "h-[20%] bg-[#6b7a86]" : "h-[14%] bg-[#8b6a4e]"}`} />
+      {!other && <div className={`absolute bottom-[14%] h-1.5 w-full ${shot === "before" ? "bg-[#c9bfae]" : "bg-white"}`} />}
+      {shot === "after" && <span className="absolute bottom-[15.5%] left-[18%] size-2 rounded-full bg-[#f6f3ec] ring-2 ring-[#e7dcc6]" />}
+    </div>
+  );
+}
+
+const PHOTO_CHECKS: Record<"match" | "mismatch", { ok: boolean; text: string }[]> = {
+  match: [
+    { ok: true, text: "Same room and angle: window and skirting match" },
+    { ok: true, text: "Whole wall painted warm white" },
+    { ok: true, text: "Old stains no longer visible" },
+    { ok: false, text: "Paint splash on the skirting, bottom left" },
+  ],
+  mismatch: [
+    { ok: false, text: "Not the same place: different wall colour, window and floor" },
+  ],
+};
+
+function PhotoCheck() {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { once: true, amount: 0.5 });
+  const [mode, setMode] = useState<"match" | "mismatch">("match");
+  const [shown, setShown] = useState(0);
+  const checks = PHOTO_CHECKS[mode];
+  useEffect(() => {
+    if (!inView) return;
+    const t = setInterval(() => setShown((n) => (n >= checks.length ? n : n + 1)), 900);
+    return () => clearInterval(t);
+  }, [inView, mode, checks.length]);
+  const done = shown >= checks.length;
+  const held = checks.some((c) => !c.ok);
+  return (
+    <div ref={ref} className="space-y-3">
+      <div className="grid grid-cols-2 gap-2">
+        {(["before", mode === "match" ? "after" : "elsewhere"] as Shot[]).map((s, i) => (
+          <figure key={s} className="relative">
+            <Wall shot={s} />
+            {i === 1 && !done && (
+              <motion.span aria-hidden className="absolute inset-x-0 h-8 bg-gradient-to-b from-transparent via-sky-400/40 to-transparent"
+                initial={{ top: "-10%" }} animate={{ top: "100%" }} transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }} />
+            )}
+            <figcaption className="absolute left-2 top-2 rounded-full bg-black/55 px-2 py-0.5 text-xs font-semibold text-white">{i === 0 ? "Before" : "After"}</figcaption>
+          </figure>
         ))}
       </div>
+      <ul className="space-y-1.5 text-xs font-medium" aria-live="polite">
+        {checks.slice(0, shown).map((c) => (
+          <motion.li key={mode + c.text} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+            className={`flex items-start gap-1.5 rounded-lg px-2.5 py-1.5 ${c.ok ? "bg-emerald-50 text-emerald-800" : "bg-red-50 text-red-800"}`}>
+            {c.ok ? <Check aria-hidden className="mt-px size-3.5 shrink-0" /> : <X aria-hidden className="mt-px size-3.5 shrink-0" />}{c.text}
+          </motion.li>
+        ))}
+        {!done && <li className="px-2.5 text-ink-soft">AI is comparing the photos…</li>}
+      </ul>
+      {done && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={`text-xs font-semibold ${held ? "text-amber-700" : "text-emerald-700"}`}>{held ? "Payment held: fix it and send new photos" : "All verified: payment released"}</p>
+          <button onClick={() => { setMode(mode === "match" ? "mismatch" : "match"); setShown(0); }}
+            className="inline-flex min-h-9 cursor-pointer items-center gap-1.5 text-xs font-semibold text-brand hover:underline">
+            <RotateCcw aria-hidden className="size-3.5" /> {mode === "match" ? "Try a photo of a different room" : "Back to the real photos"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -195,8 +235,8 @@ export function Bento() {
         <Tile className="lg:col-span-2" Icon={ScanSearch} title="Full-site audit, measured by code" text="Every page on desktop and phone, every link tested, emails and phone numbers matched character by character.">
           <AuditFeed />
         </Tile>
-        <Tile className="lg:row-span-2" Icon={Camera} title="Before/after photo proof" text="For physical jobs. Drag to compare, like the AI does, and staged or mismatched shots get flagged.">
-          <BeforeAfter />
+        <Tile className="lg:row-span-2" Icon={Camera} title="Photo proof, checked by AI" text="For physical jobs. The AI first confirms both photos show the same spot, then checks every item against what's visible. A different room or a missed spot keeps the money on hold.">
+          <PhotoCheck />
         </Tile>
         <Tile Icon={Lightbulb} title="Checklist checker" text="Vague items are caught before money is held.">
           <LintDemo />
