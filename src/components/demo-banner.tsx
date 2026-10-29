@@ -6,7 +6,7 @@ import { exitDemo, switchDemoSide } from "@/app/demo/actions";
 import { SubmitButton } from "@/components/submit-button";
 import { CopyId } from "@/components/copy-id";
 
-const SITES = "https://shantanushinde99.github.io/PayPal/demo-sites";
+const SITES = "https://shantanushinde99.github.io/verifund-demo-sites";
 
 export function DemoBanner({ user }: { user: User }) {
   if (!user.isDemo) return null;

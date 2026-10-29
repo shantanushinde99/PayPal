@@ -1,7 +1,7 @@
 # Demo sites
 
 Websites for trying Verifund. GitHub Pages hosts them at
-`https://shantanushinde99.github.io/PayPal/demo-sites/<folder>/`. All of them are Verifund sample sites, so they
+`https://shantanushinde99.github.io/verifund-demo-sites/<folder>/`. All of them are Verifund sample sites, so they
 skip the site ownership check.
 
 | Folder | Site | Difficulty |
@@ -15,7 +15,7 @@ skip the site ownership check.
 The `-phone` and `-full-page` versions are there for viewing.
 
 ## Intermediate: Greenleaf Dental
-URL: `https://shantanushinde99.github.io/PayPal/demo-sites/intermediate/`
+URL: `https://shantanushinde99.github.io/verifund-demo-sites/intermediate/`
 
 Checklist that should **pass**:
 ```
@@ -36,7 +36,7 @@ Patients can pay online with a card on the booking page
 ```
 
 ## Hard: Northwind Travel
-URL: `https://shantanushinde99.github.io/PayPal/demo-sites/hard-site/`
+URL: `https://shantanushinde99.github.io/verifund-demo-sites/hard-site/`
 
 Why it's harder for the AI checker: it's built the way many real client sites are now.
 - **A Next.js + React app**, exported as static files. Its source is in [`demo-sites-src/northwind`](../demo-sites-src/northwind).

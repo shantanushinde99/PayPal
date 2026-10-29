@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
-// Served by GitHub Pages under the main repo, so every URL lives below this path.
-const basePath = "/PayPal/demo-sites/hard-site";
+// Served by GitHub Pages from the public verifund-demo-sites repo, so every URL lives below this path.
+const basePath = "/verifund-demo-sites/hard-site";
 
 const config: NextConfig = {
   output: "export",       // plain HTML/JS files, no server

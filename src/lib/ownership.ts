@@ -1,9 +1,9 @@
 import { createHmac } from "node:crypto";
 import { env } from "@/lib/env";
 
-// Verifund's own sample sites (GitHub Pages): nobody can add a code there, so they skip the check.
+// Verifund's own sample sites (the public verifund-demo-sites repo on GitHub Pages): they skip the check.
 // ponytail: sandbox-only exemption; drop it (or tie it to demo workspaces) before real money.
-export const SAMPLE_SITES = "https://shantanushinde99.github.io/PayPal/demo-sites/";
+export const SAMPLE_SITES = "https://shantanushinde99.github.io/verifund-demo-sites/";
 export const isSampleSite = (url: string) => URL.canParse(url) && new URL(url).href.startsWith(SAMPLE_SITES);
 
 // Stable per freelancer, unguessable without the server secret.

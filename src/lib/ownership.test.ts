@@ -9,9 +9,10 @@ describe("ownership", () => {
   });
 
   it("exempts only Verifund's own sample sites", () => {
-    expect(isSampleSite("https://shantanushinde99.github.io/PayPal/demo-sites/bakery-v2/")).toBe(true);
+    expect(isSampleSite("https://shantanushinde99.github.io/verifund-demo-sites/bakery-v2/")).toBe(true);
     expect(isSampleSite("https://shantanushinde99.github.io/PayPal/other/")).toBe(false);
-    expect(isSampleSite("https://evil.example/?https://shantanushinde99.github.io/PayPal/demo-sites/")).toBe(false);
+    expect(isSampleSite("https://evil.example/?https://shantanushinde99.github.io/verifund-demo-sites/")).toBe(false);
+    expect(isSampleSite("https://shantanushinde99.github.io/PayPal/demo-sites/bakery-v2/")).toBe(false); // the old, now private, location
   });
 
   it("builds a browser script that parses", () => {

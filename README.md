@@ -6,7 +6,7 @@
 
 **AI escrow for freelance work. The money is held by PayPal, AI checks the delivered work, and the freelancer is paid when it's done.**
 
-[Live app](https://verifund-l83s.onrender.com) · [Demo sites](https://shantanushinde99.github.io/PayPal/demo-sites/) · Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
+[Live app](https://verifund-l83s.onrender.com) · [Demo sites](https://shantanushinde99.github.io/verifund-demo-sites/) · Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
 
 `PayPal Orders · Authorizations · Partial Captures · Webhooks · Disputes · JS SDK (PayPal, Pay Later, Venmo)` · `Google Gemini` · `KERNEL cloud browsers` · `AG Studio`
 
