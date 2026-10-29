@@ -26,7 +26,12 @@ export function SkillChips({ skills }: { skills: string[] }) {
   return <ul className="flex flex-wrap gap-1.5">{skills.map((s) => <li key={s} className="rounded-full bg-canvas px-2.5 py-1 text-xs font-medium text-ink-soft">{s}</li>)}</ul>;
 }
 
-export function PortfolioLink({ url }: { url: string | null }) {
+export function PortfolioLink({ url, verified = false }: { url: string | null; verified?: boolean }) {
   if (!url) return null;
-  return <a href={url} target="_blank" rel="noreferrer nofollow" className="inline-flex min-h-9 items-center gap-1 text-sm font-medium text-brand hover:underline">Portfolio <ExternalLink aria-hidden className="size-3.5" /></a>;
+  return (
+    <span className="inline-flex flex-wrap items-center gap-2">
+      <a href={url} target="_blank" rel="noreferrer nofollow" className="inline-flex min-h-9 items-center gap-1 text-sm font-medium text-brand hover:underline">Portfolio <ExternalLink aria-hidden className="size-3.5" /></a>
+      {verified && <span title="Their Verifund code is on this site, so it's really theirs" className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-semibold text-emerald-800"><BadgeCheck aria-hidden className="size-3.5" /> Verified owner</span>}
+    </span>
+  );
 }

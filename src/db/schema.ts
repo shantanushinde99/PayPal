@@ -15,6 +15,7 @@ export const users = pgTable("users", {
   skills: text().array().notNull().default([]),
   bio: text(),
   portfolioUrl: text(),
+  portfolioVerifiedUrl: text(), // the portfolio link that carried this user's ownership code when last checked (badge if it equals portfolioUrl)
   onboardedAt: timestamp({ withTimezone: true }),
   isDemo: boolean().notNull().default(false),
   demoGroup: uuid(),

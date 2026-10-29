@@ -112,6 +112,22 @@ async function fillAndSubmit(page: Page, formIndex: number) {
   await page.waitForTimeout(2_500);
 }
 
+// A short-lived cloud browser for other readers (e.g. importing a profile from a portfolio). Always deleted afterwards.
+export async function withCloudBrowser<T>(fn: (page: Page) => Promise<T>): Promise<T> {
+  const kb = await kernel().browsers.create({ stealth: true, timeout_seconds: 300 });
+  let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
+  try {
+    browser = await chromium.connectOverCDP(kb.cdp_ws_url, { timeout: 45_000 });
+    const context = browser.contexts()[0] ?? (await browser.newContext());
+    const page = context.pages()[0] ?? (await context.newPage());
+    await page.setViewportSize({ width: 1280, height: 800 });
+    return await fn(page);
+  } finally {
+    await browser?.close().catch(() => {});
+    await kernel().browsers.deleteByID(kb.session_id).catch(() => {});
+  }
+}
+
 const MAX_REPLAY_BYTES = 20_000_000;
 
 // The replay URL dies with the KERNEL session, so keep the MP4 ourselves. It is finalised shortly after stop.

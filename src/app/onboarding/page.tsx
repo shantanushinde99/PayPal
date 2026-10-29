@@ -3,6 +3,7 @@ import { ShieldCheck } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { Logo } from "@/components/header";
 import { ProfileForm } from "@/components/profile-form";
+import { ownershipCode } from "@/lib/ownership";
 
 export default async function Onboarding() {
   const user = await requireUser({ onboarded: false });
@@ -16,7 +17,7 @@ export default async function Onboarding() {
           <h1 className="font-display text-3xl font-bold tracking-tight">Welcome to Verifund</h1>
           <p className="text-ink-soft">Tell us how you&apos;ll use it. Payments always go to your verified PayPal email.</p>
         </div>
-        <ProfileForm user={user} submitLabel="Finish setup" />
+        <ProfileForm user={user} submitLabel="Finish setup" ownershipCode={ownershipCode(user.id)} />
       </main>
     </>
   );

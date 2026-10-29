@@ -4,13 +4,14 @@ import { jobs, milestones, submissions, users, type User } from "@/db/schema";
 
 export type DirectoryEntry = Pick<User, "id" | "displayName" | "headline" | "skills" | "bio" | "portfolioUrl"> & {
   trackRecord: { paid: number; firstTry: number } | null;
+  portfolioVerified: boolean; // their own ownership code was found on the portfolio they link to
 };
 
 // Freelancers a viewer may hire: real ones for real users, their own workspace's for demo users.
 export async function listFreelancers(viewer: Pick<User, "id" | "isDemo" | "demoGroup">, q = ""): Promise<DirectoryEntry[]> {
   const like = `%${q.trim().replace(/[\\%_]/g, (c) => "\\" + c)}%`;
   const rows = await db.select({
-    id: users.id, displayName: users.displayName, headline: users.headline, skills: users.skills, bio: users.bio, portfolioUrl: users.portfolioUrl,
+    id: users.id, displayName: users.displayName, headline: users.headline, skills: users.skills, bio: users.bio, portfolioUrl: users.portfolioUrl, portfolioVerifiedUrl: users.portfolioVerifiedUrl,
   }).from(users).where(and(
     arrayContains(users.roles, ["freelancer"]),
     isNotNull(users.onboardedAt),
@@ -32,8 +33,11 @@ export async function listFreelancers(viewer: Pick<User, "id" | "isDemo" | "demo
     .where(and(eq(milestones.state, "paid_out"), inArray(jobs.freelancerId, rows.map((r) => r.id))))
     .groupBy(jobs.freelancerId);
   const by = new Map(stats.map((s) => [s.freelancerId, s]));
-  return rows.map((r) => {
+  return rows.map(({ portfolioVerifiedUrl, ...r }) => {
     const s = by.get(r.id);
-    return { ...r, trackRecord: s ? { paid: s.paid, firstTry: Math.round((s.firstTry / s.paid) * 100) } : null };
+    return {
+      ...r, trackRecord: s ? { paid: s.paid, firstTry: Math.round((s.firstTry / s.paid) * 100) } : null,
+      portfolioVerified: !!r.portfolioUrl && portfolioVerifiedUrl === r.portfolioUrl,
+    };
   });
 }

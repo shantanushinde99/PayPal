@@ -17,12 +17,12 @@ describe("parseProfile", () => {
     expect(p.skills).toEqual(["React", "next.js", "Tailwind"]);
     expect(p.portfolioUrl).toBe("https://priya.dev/");
   });
-  it("accepts both roles", () => {
-    expect(parseProfile(fd({ roles: ["client", "freelancer"], displayName: "Sam", headline: "Designer" })).roles).toEqual(["client", "freelancer"]);
+  it("refuses two roles on one account (the other role needs its own account)", () => {
+    expect(() => parseProfile(fd({ roles: ["client", "freelancer"], displayName: "Sam", headline: "Designer" }))).toThrow(/one role/);
   });
   it("rejects bad input with a friendly message", () => {
-    expect(() => parseProfile(fd({ displayName: "Sam" }))).toThrow(/client, a freelancer, or both/);
-    expect(() => parseProfile(fd({ roles: "admin", displayName: "Sam" }))).toThrow(/client, a freelancer, or both/);
+    expect(() => parseProfile(fd({ displayName: "Sam" }))).toThrow(/hiring or a freelancer/);
+    expect(() => parseProfile(fd({ roles: "admin", displayName: "Sam" }))).toThrow(/hiring or a freelancer/);
     expect(() => parseProfile(fd({ roles: "client", displayName: "S" }))).toThrow(/name/);
     expect(() => parseProfile(fd({ roles: "freelancer", displayName: "Sam", headline: "Dev", portfolioUrl: "javascript:alert(1)" }))).toThrow(/link/);
     expect(() => parseProfile(fd({ roles: "freelancer", displayName: "Sam", headline: "Dev", skills: Array.from({ length: 11 }, (_, i) => `s${i}`).join(",") }))).toThrow(/10 skills/);
@@ -33,7 +33,7 @@ describe("parseProfile", () => {
 describe("parseProfile role choice", () => {
   it("reads the selected role card directly", () => {
     expect(parseProfile(fd({ roleChoice: "freelancer", displayName: "Sam", headline: "Dev" })).roles).toEqual(["freelancer"]);
-    expect(parseProfile(fd({ roleChoice: "both", displayName: "Sam", headline: "Dev" })).roles).toEqual(["client", "freelancer"]);
-    expect(() => parseProfile(fd({ roleChoice: "admin", displayName: "Sam" }))).toThrow(/client, a freelancer, or both/);
+    expect(() => parseProfile(fd({ roleChoice: "both", displayName: "Sam", headline: "Dev" }))).toThrow(/hiring or a freelancer/);
+    expect(() => parseProfile(fd({ roleChoice: "admin", displayName: "Sam" }))).toThrow(/hiring or a freelancer/);
   });
 });

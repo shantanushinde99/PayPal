@@ -37,7 +37,7 @@ export default async function Freelancers({ searchParams }: { searchParams: Prom
                   {f.bio && <p className="line-clamp-3 text-sm leading-relaxed text-ink-soft">{f.bio}</p>}
                   <SkillChips skills={f.skills} />
                   <div className="mt-auto flex items-center justify-between gap-3 pt-1">
-                    <PortfolioLink url={f.portfolioUrl} />
+                    <PortfolioLink url={f.portfolioUrl} verified={f.portfolioVerified} />
                     {canHire && <Link href={`/jobs/new?freelancer=${f.id}`} className={btn.primary}><UserPlus aria-hidden className="size-4" /> Hire</Link>}
                   </div>
                 </Card>
