@@ -12,6 +12,7 @@ import { acceptJob, declineJob, resetAcceptance, resolveHire } from "@/lib/invit
 import { planJob } from "@/lib/plan-job";
 import { toMinor, CURRENCIES } from "@/lib/money";
 import { parsePhoto } from "@/lib/photo-input";
+import { checkProofLink } from "@/lib/proof-link";
 import { withDesignItem } from "@/lib/design-reference";
 import { lintChecklist } from "@/lib/lint-checklist";
 import { startFunding, completeFunding, cancel, release } from "@/lib/payments";
@@ -125,9 +126,10 @@ export async function submitProof(milestoneId: string, formData: FormData) {
     parsePhoto(before); parsePhoto(after); // throws on non-images / oversized
     proof = { beforePhoto: before, afterPhoto: after };
   } else {
-    const url = new URL(String(formData.get("url"))); // throws on junk
-    if (!["http:", "https:"].includes(url.protocol)) throw new Error("URL must be http(s)");
-    proof = { url: url.toString() };
+    const raw = String(formData.get("url") ?? "");
+    const link = checkProofLink(raw); // the form checks this first; this is the server's copy of the rule
+    if (link.problem) throw new Error(link.problem);
+    proof = { url: new URL(raw.trim()).toString() };
   }
 
   if (row.m.position > 0) {

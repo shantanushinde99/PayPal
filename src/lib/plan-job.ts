@@ -30,9 +30,11 @@ export async function planJob(description: string, budget: number): Promise<JobP
     config: {
       systemInstruction:
         "You split a freelance job into 1-3 milestones whose amounts sum exactly to the budget. " +
-        "Pick each milestone's proofType: 'website' for anything delivered online (sites, pages, web apps), " +
+        "Pick each milestone's proofType: 'website' for anything delivered online (sites, pages, web apps) or as code in a public " +
+        "GitHub repository (scripts, APIs, libraries, apps), " +
         "'photo' for physical work (painting, repairs, cleaning, installs, crafts) proven with before/after photos. " +
         "Write checklist items a reviewer can verify from that proof alone: concrete, observable, one requirement each. " +
+        "For code delivered as a repository, write items checkable by reading the code (files, routes, tests, README steps). " +
         "No vague items like 'high quality'.",
       responseMimeType: "application/json",
       responseJsonSchema: schema,

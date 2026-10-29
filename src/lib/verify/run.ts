@@ -5,6 +5,8 @@ import { checkPhotos } from "@/lib/verify/photo";
 import { parsePhoto } from "@/lib/photo-input";
 import { transition } from "@/db/transition";
 import { checkWebsite } from "@/lib/verify/website";
+import { checkRepo, isCodeHostUrl, RepoProblem } from "@/lib/verify/repo";
+import { env } from "@/lib/env";
 import { shouldRelease, type VerdictItem } from "@/lib/release";
 import { release } from "@/lib/payments";
 import { reviewWindowMinutes } from "@/lib/review-window";
@@ -51,19 +53,24 @@ async function verify(milestoneId: string, submissionId: string): Promise<false 
       verdict = await checkPhotos({ before: parsePhoto(sub.beforePhoto ?? ""), after: parsePhoto(sub.afterPhoto ?? ""), checklist, log });
     } else {
       const reference = m.referenceImage ? parsePhoto(m.referenceImage) : undefined;
-      const [j] = await db.select({ freelancerId: jobs.freelancerId }).from(jobs).where(eq(jobs.id, m.jobId));
+      const [j] = await db.select({ freelancerId: jobs.freelancerId, clientDemo: users.isDemo }).from(jobs)
+        .innerJoin(users, eq(users.id, jobs.clientId)).where(eq(jobs.id, m.jobId));
       const url = sub.url ?? "";
-      const ownerCode = isSampleSite(url) ? undefined : ownershipCode(j.freelancerId ?? "none");
-      const r = await checkWebsite({
-        url, checklist, reference, ownerCode, log,
-        onReplay: async (mp4) => { await db.insert(replays).values({ submissionId, mp4 }).onConflictDoNothing(); },
-      });
+      // Ownership is proven on real accounts; demo workspaces (sandbox money) and Verifund's sample sites skip it.
+      const skip = isSampleSite(url) ? "Verifund sample site: ownership check skipped." : j.clientDemo ? "Demo workspace: ownership check skipped. On a real account you'd prove this is yours." : null;
+      const ownerCode = skip ? undefined : ownershipCode(j.freelancerId ?? "none");
+      const r = isCodeHostUrl(url)
+        ? await checkRepo({ url, checklist, ownerCode, log, token: env.GITHUB_READ_TOKEN })
+        : await checkWebsite({
+          url, checklist, reference, ownerCode, skipNote: skip ?? undefined, log,
+          onReplay: async (mp4) => { await db.insert(replays).values({ submissionId, mp4 }).onConflictDoNothing(); },
+        });
       verdict = r.verdict;
       await db.update(submissions).set({ report: r.report }).where(eq(submissions.id, submissionId));
     }
   } catch (e) {
     console.error("check failed", milestoneId, e);
-    const reason = (checkError = friendlyError(e));
+    const reason = (checkError = e instanceof RepoProblem ? e.message : friendlyError(e));
     await logError(milestoneId, reason);
     verdict = checklist.map((c) => ({ checklistItemId: c.id, status: "unsure", reason }));
   }

@@ -7,6 +7,7 @@ import { checklistItems, replays, submissions, verdictItems } from "@/db/schema"
 import { requireUser } from "@/lib/session";
 import { formatMoney } from "@/lib/money";
 import type { SiteReport } from "@/lib/verify/site-facts";
+import type { RepoReport } from "@/lib/verify/repo";
 import { Header } from "@/components/header";
 import { Card, StatusBadge } from "@/components/ui";
 import { loadJobForUser } from "../../../load";
@@ -29,7 +30,9 @@ export default async function ProofReport({ params }: { params: Promise<{ id: st
   const items = await db.select().from(checklistItems).where(eq(checklistItems.milestoneId, m.id)).orderBy(asc(checklistItems.position));
   const verdict = await db.select().from(verdictItems).where(eq(verdictItems.submissionId, sid));
   const [recording] = await db.select({ id: replays.submissionId }).from(replays).where(eq(replays.submissionId, sid));
-  const report = sub.report as SiteReport | null;
+  const stored = sub.report as SiteReport | RepoReport | null;
+  const repo = stored && "kind" in stored && stored.kind === "repo" ? stored : null;
+  const report = stored && !repo ? (stored as SiteReport) : null; // website audit
   const passed = verdict.filter((v) => v.status === "pass").length;
   const path = (u: string) => { try { const x = new URL(u); return x.pathname + x.search; } catch { return u; } };
   const shotFor = (u?: string | null) => report?.pages.find((p) => p.url === u)?.screenshot;
@@ -98,6 +101,20 @@ export default async function ProofReport({ params }: { params: Promise<{ id: st
             );
           })}
         </section>
+
+        {repo && (
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Repository checked</h2>
+            <dl className="grid gap-3 rounded-xl border border-line bg-white p-4 text-sm sm:grid-cols-2">
+              <div><dt className="text-ink-soft">Repository</dt><dd><a href={repo.url} target="_blank" rel="noreferrer nofollow" className="font-medium text-brand underline">{repo.repo}</a> · branch {repo.branch}</dd></div>
+              <div><dt className="text-ink-soft">Files</dt><dd>{repo.files}{repo.truncated ? " (list truncated by GitHub)" : ""} · README {repo.hasReadme ? "yes" : "no"} · tests {repo.hasTests ? "yes" : "no"}</dd></div>
+              <div><dt className="text-ink-soft">Languages</dt><dd>{Object.keys(repo.languages).slice(0, 6).join(", ") || "—"}</dd></div>
+              <div><dt className="text-ink-soft">License · last push</dt><dd>{repo.license ?? "none"} · <LocalTime date={new Date(repo.pushedAt)} /></dd></div>
+              <div className="sm:col-span-2"><dt className="text-ink-soft">Files the AI read ({repo.read.length})</dt><dd className="break-all font-mono text-xs">{repo.read.join(" · ") || "—"}</dd></div>
+              <div className="sm:col-span-2"><dt className="text-ink-soft">Ownership</dt><dd>{repo.ownedVia ? `Verification code found in ${repo.ownedVia}` : "Skipped (demo workspace)"}</dd></div>
+            </dl>
+          </section>
+        )}
 
         {report && (
           <>

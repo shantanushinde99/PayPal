@@ -194,7 +194,8 @@ export async function checkWebsite(o: {
   url: string;
   checklist: { id: string; requirement: string }[];
   reference?: Photo;
-  ownerCode?: string; // the freelancer's code; undefined skips the check (sample sites)
+  ownerCode?: string; // the freelancer's code; undefined skips the check (sample sites, demo workspaces)
+  skipNote?: string;  // what to log when the ownership check is skipped
   onReplay?: (mp4: Buffer) => Promise<void>; // KERNEL's recording, also after a failed check
   log: (message: string, image?: string) => Promise<void>;
 }): Promise<WebsiteCheck> {
@@ -231,7 +232,7 @@ export async function checkWebsite(o: {
         return { report, verdict: ids.map((id) => ({ checklistItemId: id, status: "fail", reason, evidence: "No verification code found", pageUrl: start })) };
       }
       await o.log(`Site ownership confirmed (${found}).`);
-    } else await o.log("Verifund sample site: ownership check skipped.");
+    } else await o.log(o.skipNote ?? "Verifund sample site: ownership check skipped.");
 
     const formFacts = o.checklist.some((c) => ABOUT_FORMS.test(c.requirement)) ? await testForms(page, report, start, o.checklist.map((c) => c.requirement), o.log) : [];
     const parts: Part[] = [{ text: `Website: "${start}" (only this site may be visited)\nChecklist (use these ids):\n${

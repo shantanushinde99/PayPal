@@ -45,6 +45,7 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
 
   return {
     job, role, clientEmail: client?.email ?? "", client: person(client), freelancer: person(free),
+    demo: !!client?.isDemo, // demo workspace (sandbox money): links skip the ownership check
     milestones: ms.map((m, i) => ({
       ...m,
       checklist: items.filter((c) => c.milestoneId === m.id),

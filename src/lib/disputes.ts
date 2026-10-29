@@ -9,6 +9,7 @@ import { generate } from "@/lib/gemini";
 import { friendlyError } from "@/lib/friendly-error";
 import { reviewWindowMinutes } from "@/lib/review-window";
 import type { SiteReport } from "@/lib/verify/site-facts";
+import type { RepoReport } from "@/lib/verify/repo";
 
 type Person = Pick<User, "id" | "email">;
 export type Decision = { share: number; reasoning: string };
@@ -93,11 +94,13 @@ async function judgePrompt(m: typeof milestones.$inferSelect, j: typeof jobs.$in
   const items = await db.select().from(checklistItems).where(eq(checklistItems.milestoneId, m.id)).orderBy(asc(checklistItems.position));
   const [sub] = await db.select().from(submissions).where(eq(submissions.milestoneId, m.id)).orderBy(desc(submissions.createdAt)).limit(1);
   const verdict = sub ? await db.select().from(verdictItems).where(eq(verdictItems.submissionId, sub.id)) : [];
-  const report = sub?.report as SiteReport | null | undefined;
+  const stored = sub?.report as SiteReport | RepoReport | null | undefined;
   const q = (s: string | null | undefined) => JSON.stringify(s ?? "(no statement)");
-  const facts = report
-    ? `Measured by code: ${report.pages.length} page(s); ${report.links.filter((l) => !l.ok).length} broken link(s); emails ${report.contacts.emails.map((e) => e.value).join(", ") || "none"}; phones ${report.contacts.phones.map((p) => p.value).join(", ") || "none"}.`
-    : sub?.beforePhoto ? "Proof: before/after photos (judged by the checker)." : "No proof submitted.";
+  const facts = stored && "kind" in stored && stored.kind === "repo"
+    ? `Proof: GitHub repository ${stored.repo} (${stored.files} files; languages ${Object.keys(stored.languages).join(", ") || "unknown"}; tests ${stored.hasTests ? "present" : "none found"}; files read: ${stored.read.join(", ") || "none"}).`
+    : stored
+      ? `Measured by code: ${(stored as SiteReport).pages.length} page(s); ${(stored as SiteReport).links.filter((l) => !l.ok).length} broken link(s); emails ${(stored as SiteReport).contacts.emails.map((e) => e.value).join(", ") || "none"}; phones ${(stored as SiteReport).contacts.phones.map((p) => p.value).join(", ") || "none"}.`
+      : sub?.beforePhoto ? "Proof: before/after photos (judged by the checker)." : "No proof submitted.";
   return [
     `Job: ${q(j.title)}. Milestone: ${q(m.title)}, ${formatMoney(m.amountMinor, j.currency)}.`,
     `The AI checker's outcome: ${m.failReason ? "NOT MET" : "ALL MET"}. The ${d.openedBy} opened this dispute.`,

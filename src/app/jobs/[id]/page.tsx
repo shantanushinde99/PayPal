@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
-  Hourglass, MailOpen, PlayCircle, ReceiptText, Scale, Send, Wallet, XCircle,
+  Hourglass, MailOpen, PlayCircle, ReceiptText, Scale, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
@@ -19,6 +19,7 @@ import { DisputePanel, StatementForm } from "./dispute-panel";
 import { acceptDecisionAction, askJudgeAction, openDisputeAction, rejectDecisionAction, respondDisputeAction } from "../dispute-actions";
 import { shareMinor } from "@/lib/money";
 import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
+import { ProofLinkForm } from "./proof-link-form";
 import { PayPalButtons } from "./paypal-buttons";
 import { env } from "@/lib/env";
 
@@ -28,8 +29,7 @@ const sdkSrc = (currency: string, payee?: string) => `${env.PAYPAL_WEB_BASE}/sdk
   ...(payee && { "merchant-id": payee }),
   ...(env.PAYPAL_API_BASE.includes("sandbox") && { "buyer-country": "US" }), // sandbox only: show US funding options
 })}`;
-import { CopyId } from "@/components/copy-id";
-import { ownershipCode, ownershipMeta } from "@/lib/ownership";
+import { ownershipCode } from "@/lib/ownership";
 
 type Loaded = Awaited<ReturnType<typeof loadJobForUser>>;
 type M = Loaded["milestones"][number];
@@ -140,20 +140,6 @@ function Activity({ m }: { m: M }) {
   );
 }
 
-function OwnershipHint({ code }: { code: string }) {
-  return (
-    <details className="text-sm text-ink-soft">
-      <summary className="cursor-pointer font-medium text-ink">Prove you own the site (required)</summary>
-      <div className="mt-2 space-y-1.5">
-        <p>Add this tag inside the homepage <code>&lt;head&gt;</code>:</p>
-        <CopyId value={ownershipMeta(code)} label="Copy verification tag" />
-        <p>or upload a file <code>.well-known/verifund.txt</code> containing <CopyId value={code} label="Copy verification code" /></p>
-        <p className="text-xs">Verifund&apos;s sample sites are exempt.</p>
-      </div>
-    </details>
-  );
-}
-
 function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: boolean }) {
   const { job, role } = data;
   const isClient = role === "client";
@@ -165,7 +151,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">{m.title}</h3>
-            <p className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><ProofIcon aria-hidden className="size-4" />{m.proofType === "photo" ? "Proof: before/after photos" : "Proof: live website"}</p>
+            <p className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><ProofIcon aria-hidden className="size-4" />{m.proofType === "photo" ? "Proof: before/after photos" : "Proof: website or GitHub repo"}</p>
           </div>
           <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-1.5">
             <span className="text-lg font-bold tabular-nums">{formatMoney(m.amountMinor, job.currency)}</span>
@@ -189,7 +175,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
               <label className="space-y-1 text-sm font-medium">Title<input name="title" defaultValue={m.title} className={field} /></label>
               <label className="space-y-1 text-sm font-medium">Amount<input name="amount" type="number" step="0.01" min="0.01" defaultValue={toPayPalValue(m.amountMinor, job.currency)} className={field} /></label>
               <label className="space-y-1 text-sm font-medium">Proof type
-                <select name="proofType" defaultValue={m.proofType} className={field}><option value="website">Website</option><option value="photo">Photos</option></select>
+                <select name="proofType" defaultValue={m.proofType} className={field}><option value="website">Website or GitHub repo</option><option value="photo">Photos</option></select>
               </label>
             </div>
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
@@ -253,14 +239,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             {m.proofType === "photo" ? (
               <PhotoProofForm action={submitProof.bind(null, m.id)} />
             ) : (
-              <>
-                <form action={submitProof.bind(null, m.id)} className="flex flex-col gap-3 sm:flex-row">
-                  <label htmlFor={`url-${m.id}`} className="sr-only">Website URL</label>
-                  <input id={`url-${m.id}`} name="url" type="url" required placeholder="https://your-site.com" defaultValue={m.submission?.url ?? undefined} className={field} />
-                  <SubmitButton className={`${btn.primary} shrink-0`} pending="Submitting…"><Send aria-hidden className="size-4" /> Submit for AI check</SubmitButton>
-                </form>
-                <OwnershipHint code={ownershipCode(job.freelancerId ?? "none")} />
-              </>
+              <ProofLinkForm action={submitProof.bind(null, m.id)} id={m.id} defaultUrl={m.submission?.url ?? undefined} demo={data.demo} code={ownershipCode(job.freelancerId ?? "none")} />
             )}
           </div>
         )}
