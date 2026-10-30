@@ -7,7 +7,7 @@ const NEXT: Record<MilestoneState, MilestoneState[]> = {
   funded: ["verifying", "cancelled"],
   verifying: ["passed", "failed"],
   failed: ["verifying", "cancelled", "disputed"], // freelancer can dispute the AI's "not met"
-  passed: ["paid_out", "disputed"], // review window: client approves, it auto-releases, or client disputes
+  passed: ["paid_out", "disputed", "failed"], // review window: client approves, it auto-releases, disputes, or (design) asks for changes
   disputed: ["paid_out", "cancelled"], // settled by the AI Judge or an admin (full, partial or nothing)
   paid_out: [],
   cancelled: [],

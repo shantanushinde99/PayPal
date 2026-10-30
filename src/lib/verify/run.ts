@@ -12,6 +12,7 @@ import { release } from "@/lib/payments";
 import { reviewWindowMinutes } from "@/lib/review-window";
 import { friendlyError } from "@/lib/friendly-error";
 import { isSampleSite, ownershipCode } from "@/lib/ownership";
+import { approvedDesign } from "@/lib/design-review";
 
 const logError = (milestoneId: string, message: string) => db.insert(events).values({ milestoneId, kind: "error", message });
 
@@ -52,7 +53,8 @@ async function verify(milestoneId: string, submissionId: string): Promise<false 
     if (m.proofType === "photo") {
       verdict = await checkPhotos({ before: parsePhoto(sub.beforePhoto ?? ""), after: parsePhoto(sub.afterPhoto ?? ""), checklist, log });
     } else {
-      const reference = m.referenceImage ? parsePhoto(m.referenceImage) : undefined;
+      const ref = m.referenceImage ?? await approvedDesign(m); // the client's reference, or the design they approved earlier
+      const reference = ref ? parsePhoto(ref) : undefined;
       const [j] = await db.select({ freelancerId: jobs.freelancerId, clientDemo: users.isDemo }).from(jobs)
         .innerJoin(users, eq(users.id, jobs.clientId)).where(eq(jobs.id, m.jobId));
       const url = sub.url ?? "";

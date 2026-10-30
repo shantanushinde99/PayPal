@@ -2,23 +2,23 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
-  Hourglass, MailOpen, PlayCircle, ReceiptText, Scale, Wallet, XCircle,
+  Hourglass, MailOpen, Palette, PlayCircle, ReceiptText, Scale, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease } from "../actions";
+import { saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
 import { LocalTime } from "@/components/local-time";
 import { AutoRefresh } from "./auto-refresh";
-import { DisputePanel, StatementForm } from "./dispute-panel";
+import { ChangeRequestForm, DisputePanel, StatementForm } from "./dispute-panel";
 import { acceptDecisionAction, askJudgeAction, openDisputeAction, rejectDecisionAction, respondDisputeAction } from "../dispute-actions";
 import { shareMinor } from "@/lib/money";
-import { PhotoProofForm, PhotoPicker } from "./photo-proof-form";
+import { DesignProofForm, PhotoProofForm, PhotoPicker } from "./photo-proof-form";
 import { ProofLinkForm } from "./proof-link-form";
 import { PayPalButtons } from "./paypal-buttons";
 import { env } from "@/lib/env";
@@ -66,8 +66,14 @@ function Checklist({ m }: { m: M }) {
   );
 }
 
-function StateBanner({ m, currency, freelancer, blocked }: { m: M; currency: string; freelancer: string; blocked: boolean }) {
+function StateBanner({ m, currency, freelancer, blocked, rounds }: { m: M; currency: string; freelancer: string; blocked: boolean; rounds: number }) {
   const amount = formatMoney(m.amountMinor, currency);
+  if (m.proofType === "design" && m.state === "passed") {
+    return <Banner tone="bg-violet-50 text-violet-900" icon={<Palette aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">Design submitted: waiting for the client. {rounds - m.changeRequests} of {rounds} change rounds left.</p><p>The client approves it or asks for changes. If they don&apos;t answer, it&apos;s approved{m.releaseAt ? <> on <LocalTime date={m.releaseAt} /></> : ""} and {amount} is paid.</p></Banner>;
+  }
+  if (m.proofType === "design" && m.state === "failed") {
+    return <Banner tone="bg-amber-50 text-amber-900" icon={<Palette aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{m.failReason}</p><p>The money stays on hold. Update the design and send it again.</p></Banner>;
+  }
   switch (m.state) {
     case "funding": return <Banner tone="bg-sky-50 text-sky-900" icon={<Wallet aria-hidden className="size-5 shrink-0" />}><p>Waiting for the client to approve the payment on PayPal.</p></Banner>;
     case "funded": return <Banner tone="bg-sky-50 text-sky-900" icon={<Lock aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{amount} is held by PayPal.</p><p>{blocked ? "Starts once the previous milestone is paid." : "It is released automatically when the AI verifies every checklist item."}</p></Banner>;
@@ -90,6 +96,13 @@ function Proof({ m }: { m: M }) {
     <div className="space-y-2">
       <p className="text-sm font-semibold">Submitted proof</p>
       {s.url && <a href={s.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 break-all text-sm font-medium text-brand underline"><Globe aria-hidden className="size-4 shrink-0" />{s.url}<ExternalLink aria-hidden className="size-3.5 shrink-0" /></a>}
+      {m.proofType === "design" && s.afterPhoto && (
+        <figure className="max-w-md space-y-1">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={s.afterPhoto} alt="Design mockup" className="rounded-lg border border-line" />
+          <figcaption className="text-xs text-ink-soft">Design mockup{m.state === "paid_out" ? ": approved. The build is checked against it." : ""}</figcaption>
+        </figure>
+      )}
       {s.beforePhoto && s.afterPhoto && (
         <div className="grid grid-cols-2 gap-3">
           {[["Before", s.beforePhoto], ["After", s.afterPhoto]].map(([label, src]) => (
@@ -107,7 +120,7 @@ function Proof({ m }: { m: M }) {
           <video controls preload="metadata" src={`/api/replays/${s.id}`} className="mt-2 w-full rounded-lg border border-line bg-black">Your browser can&apos;t play this recording.</video>
         </details>
       )}
-      <Link href={`/jobs/${m.jobId}/report/${s.id}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><FileText aria-hidden className="size-4" /> View proof report</Link>
+      {m.proofType !== "design" && <Link href={`/jobs/${m.jobId}/report/${s.id}`} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-brand hover:underline"><FileText aria-hidden className="size-4" /> View proof report</Link>}
     </div>
   );
 }
@@ -143,7 +156,8 @@ function Activity({ m }: { m: M }) {
 function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: boolean }) {
   const { job, role } = data;
   const isClient = role === "client";
-  const ProofIcon = m.proofType === "photo" ? Camera : Globe;
+  const ProofIcon = m.proofType === "photo" ? Camera : m.proofType === "design" ? Palette : Globe;
+  const proofLabel = m.proofType === "photo" ? "Proof: before/after photos" : m.proofType === "design" ? `Proof: a design mockup the client approves · ${job.revisionRounds} change rounds included` : "Proof: website or GitHub repo";
   return (
     <li className="relative pl-12">
       <span className={`absolute left-0 top-5 grid size-8 place-items-center rounded-full text-sm font-bold ${m.state === "paid_out" ? "bg-emerald-600 text-white" : "border-2 border-brand bg-white text-brand"}`}>{m.position + 1}</span>
@@ -151,15 +165,15 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <h3 className="text-lg font-semibold">{m.title}</h3>
-            <p className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><ProofIcon aria-hidden className="size-4" />{m.proofType === "photo" ? "Proof: before/after photos" : "Proof: website or GitHub repo"}</p>
+            <p className="inline-flex items-center gap-1.5 text-sm text-ink-soft"><ProofIcon aria-hidden className="size-4" />{proofLabel}</p>
           </div>
           <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:gap-1.5">
             <span className="text-lg font-bold tabular-nums">{formatMoney(m.amountMinor, job.currency)}</span>
-            <StatusBadge state={m.state} />
+            <StatusBadge state={m.state} label={m.proofType === "design" ? { passed: "Waiting for approval", failed: "Changes requested" }[m.state as string] : undefined} />
           </div>
         </div>
 
-        <StateBanner m={m} currency={job.currency} freelancer={data.freelancer.name} blocked={blocked} />
+        <StateBanner m={m} currency={job.currency} freelancer={data.freelancer.name} blocked={blocked} rounds={job.revisionRounds} />
         {m.paypalDisputeId && (
           <Banner tone="bg-red-50 text-red-900" icon={<Scale aria-hidden className="size-5 shrink-0" />}>
             <p className="font-semibold">PayPal dispute {m.paypalDisputeId}: {m.paypalDisputeStatus?.replaceAll("_", " ").toLowerCase()}</p>
@@ -175,7 +189,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
               <label className="space-y-1 text-sm font-medium">Title<input name="title" defaultValue={m.title} className={field} /></label>
               <label className="space-y-1 text-sm font-medium">Amount<input name="amount" type="number" step="0.01" min="0.01" defaultValue={toPayPalValue(m.amountMinor, job.currency)} className={field} /></label>
               <label className="space-y-1 text-sm font-medium">Proof type
-                <select name="proofType" defaultValue={m.proofType} className={field}><option value="website">Website or GitHub repo</option><option value="photo">Photos</option></select>
+                <select name="proofType" defaultValue={m.proofType} className={field}><option value="website">Website or GitHub repo</option><option value="photo">Photos</option><option value="design">Design mockup (you approve it)</option></select>
               </label>
             </div>
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
@@ -191,7 +205,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             {m.proofType === "website" && (
               <div className="max-w-xs">
                 <PhotoPicker name="referenceImage" label="Reference design (optional)" initial={m.referenceImage ?? ""} />
-                <p className="mt-1 text-xs text-ink-soft">A mockup or screenshot. The AI compares the live homepage with it.</p>
+                <p className="mt-1 text-xs text-ink-soft">{data.milestones.some((x) => x.proofType === "design" && x.position < m.position) ? "Leave empty to use the design you approve in the design milestone." : "A mockup or screenshot. The AI compares the live homepage with it."}</p>
               </div>
             )}
             <SubmitButton className={btn.secondary} pending="Saving…">Save checklist</SubmitButton>
@@ -236,7 +250,9 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         {role === "freelancer" && ["funded", "failed"].includes(m.state) && !blocked && (
           <div className="space-y-3 rounded-lg border border-brand/30 bg-brand-soft/40 p-4">
             <p className="font-semibold">{m.state === "failed" ? "Resubmit your proof" : "Submit your proof"}</p>
-            {m.proofType === "photo" ? (
+            {m.proofType === "design" ? (
+              <DesignProofForm action={submitProof.bind(null, m.id)} />
+            ) : m.proofType === "photo" ? (
               <PhotoProofForm action={submitProof.bind(null, m.id)} />
             ) : (
               <ProofLinkForm action={submitProof.bind(null, m.id)} id={m.id} defaultUrl={m.submission?.url ?? undefined} demo={data.demo} code={ownershipCode(job.freelancerId ?? "none")} />
@@ -247,17 +263,23 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         {isClient && m.state === "passed" && (
           <div className="flex flex-wrap items-start gap-3 rounded-lg border border-emerald-200 p-4">
             <form action={approveRelease.bind(null, m.id)}>
-              <SubmitButton className={btn.primary} pending="Paying…"><CheckCircle2 aria-hidden className="size-4" /> Approve &amp; pay now</SubmitButton>
+              <SubmitButton className={btn.primary} pending="Paying…"><CheckCircle2 aria-hidden className="size-4" /> {m.proofType === "design" ? "Approve design & pay" : "Approve & pay now"}</SubmitButton>
             </form>
+            {m.proofType === "design" && (
+              <details className="min-w-0 flex-1" open={m.changeRequests < job.revisionRounds}>
+                <summary className={`${btn.secondary} list-none`}><Palette aria-hidden className="size-4" /> Ask for changes</summary>
+                <div className="mt-3"><ChangeRequestForm action={requestDesignChanges.bind(null, m.id)} left={job.revisionRounds - m.changeRequests} total={job.revisionRounds} /></div>
+              </details>
+            )}
             <details className="min-w-0 flex-1">
               <summary className={`${btn.secondary} list-none`}><Scale aria-hidden className="size-4" /> Dispute the result</summary>
-              <div className="mt-3"><StatementForm action={openDisputeAction.bind(null, m.id)} label="What is not done, despite the AI's pass?" cta="Open dispute" placeholder="The contact form submits but no email arrives…" /></div>
+              <div className="mt-3"><StatementForm action={openDisputeAction.bind(null, m.id)} items={m.checklist} label={m.proofType === "design" ? "Why the design misses that item" : "What is not done, despite the AI's pass?"} cta="Open dispute" placeholder="The contact form submits but no email arrives…" /></div>
             </details>
           </div>
         )}
-        {role === "freelancer" && m.state === "failed" && m.verdict.length > 0 && (
+        {role === "freelancer" && m.state === "failed" && (m.verdict.length > 0 || m.proofType === "design") && (
           <details className="rounded-lg border border-line p-4">
-            <summary className="cursor-pointer text-sm font-semibold">Think the AI got it wrong? Dispute it</summary>
+            <summary className="cursor-pointer text-sm font-semibold">{m.proofType === "design" ? "Is the change outside what you agreed? Dispute it" : "Think the AI got it wrong? Dispute it"}</summary>
             <div className="mt-3"><StatementForm action={openDisputeAction.bind(null, m.id)} label="Why the work meets the checklist" cta="Open dispute" placeholder="The opening hours are in the footer of every page…" /></div>
           </details>
         )}

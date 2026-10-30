@@ -25,7 +25,7 @@ async function act(milestoneId: string, fn: () => Promise<void>): Promise<Disput
 
 export async function openDisputeAction(milestoneId: string, _: DisputeState, form: FormData) {
   const user = await requireUser();
-  return act(milestoneId, () => openDispute(milestoneId, user, String(form.get("statement") ?? "")));
+  return act(milestoneId, () => openDispute(milestoneId, user, String(form.get("statement") ?? ""), String(form.get("itemId") ?? "") || undefined));
 }
 
 export async function respondDisputeAction(milestoneId: string, _: DisputeState, form: FormData) {

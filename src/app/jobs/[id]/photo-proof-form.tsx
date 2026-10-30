@@ -41,6 +41,16 @@ export function PhotoPicker({ name, label, initial = "" }: { name: string; label
   );
 }
 
+export function DesignProofForm({ action }: { action: (formData: FormData) => Promise<void> }) {
+  return (
+    <form action={action} className="space-y-4">
+      <div className="max-w-sm"><PhotoPicker name="mockup" label="Design mockup (homepage screenshot or export)" /></div>
+      <p className="text-sm text-ink-soft">The client approves it or asks for changes, within the rounds you both agreed. Once approved, the build is checked against it.</p>
+      <SubmitButton className={btn.primary} pending="Uploading…"><ImagePlus aria-hidden className="size-4" /> Send design for approval</SubmitButton>
+    </form>
+  );
+}
+
 export function PhotoProofForm({ action }: { action: (formData: FormData) => Promise<void> }) {
   return (
     <form action={action} className="space-y-4">

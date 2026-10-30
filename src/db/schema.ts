@@ -34,6 +34,7 @@ export const jobs = pgTable("jobs", {
   title: text().notNull(),
   description: text().notNull(),
   currency: text().notNull(),
+  revisionRounds: integer().notNull().default(2), // design change requests included; agreed with the job
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
@@ -43,7 +44,7 @@ export const milestones = pgTable("milestones", {
   position: integer().notNull(),
   title: text().notNull(),
   amountMinor: integer().notNull(),
-  proofType: text().notNull().default("website"),
+  proofType: text().notNull().default("website"), // website | photo | design (a mockup the client approves)
   state: text().notNull().default("draft"),
   direct: boolean().notNull().default(false), // funded with the freelancer as payee (no payout step)
   referenceImage: text(), // optional client design reference (image data URL)
@@ -53,7 +54,8 @@ export const milestones = pgTable("milestones", {
   payoutBatchId: text(),
   failReason: text(),
   releaseAt: timestamp({ withTimezone: true }), // end of the review window after an AI pass
-  capturedMinor: integer(), // what was actually paid; less than amountMinor after a split decision
+  capturedMinor: integer(),
+  changeRequests: integer().notNull().default(0), // design rounds the client has used // what was actually paid; less than amountMinor after a split decision
   paypalDisputeId: text(), // a buyer dispute opened on PayPal itself (webhook)
   paypalDisputeStatus: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

@@ -14,6 +14,7 @@ import { toMinor, CURRENCIES } from "@/lib/money";
 import { parsePhoto } from "@/lib/photo-input";
 import { checkProofLink } from "@/lib/proof-link";
 import { withDesignItem } from "@/lib/design-reference";
+import { requestChanges, submitDesign } from "@/lib/design-review";
 import { lintChecklist } from "@/lib/lint-checklist";
 import { startFunding, completeFunding, cancel, release } from "@/lib/payments";
 import { runVerification } from "@/lib/verify/run";
@@ -29,19 +30,28 @@ export async function createJob(formData: FormData) {
   if (!CURRENCIES.includes(currency)) throw new Error("Unsupported currency");
   const hire = await resolveHire(user, { freelancerId: String(formData.get("freelancerId") ?? "") || undefined, email: String(formData.get("freelancerEmail") ?? "") });
 
+  const rounds = Math.min(5, Math.max(0, Math.round(Number(formData.get("revisionRounds") ?? 2)) || 0));
+
   const plan = await planJob(description, budget);
-  const notes = await Promise.all(plan.milestones.map((m) => lintChecklist(m.proofType === "photo" ? "photo" : "website", m.checklist)));
+  // After a design milestone, the build is checked against the approved mockup: that's part of what both sides agree to.
+  const milestonesPlan = plan.milestones.map((m, i) => {
+    const proofType = asProofType(m.proofType);
+    const designBefore = plan.milestones.slice(0, i).some((x) => x.proofType === "design");
+    return { ...m, proofType, checklist: proofType === "website" && designBefore ? withDesignItem(m.checklist) : m.checklist };
+  });
+  const notes = await Promise.all(milestonesPlan.map((m) => (m.proofType === "design" ? m.checklist.map(() => null) : lintChecklist(m.proofType, m.checklist))));
   const jobId = await db.transaction(async (tx) => {
-    const [job] = await tx.insert(jobs).values({ clientId: user.id, ...hire, status: "invited", title: plan.title, description, currency }).returning();
-    for (const [i, m] of plan.milestones.entries()) {
-      const proofType = m.proofType === "photo" ? "photo" : "website";
-      const [ms] = await tx.insert(milestones).values({ jobId: job.id, position: i, title: m.title, proofType, amountMinor: toMinor(m.amount, currency) }).returning();
+    const [job] = await tx.insert(jobs).values({ clientId: user.id, ...hire, status: "invited", title: plan.title, description, currency, revisionRounds: rounds }).returning();
+    for (const [i, m] of milestonesPlan.entries()) {
+      const [ms] = await tx.insert(milestones).values({ jobId: job.id, position: i, title: m.title, proofType: m.proofType, amountMinor: toMinor(m.amount, currency) }).returning();
       await tx.insert(checklistItems).values(m.checklist.map((requirement, position) => ({ milestoneId: ms.id, position, requirement, lintNote: notes[i][position] })));
     }
     return job.id;
   });
   redirect(`/jobs/${jobId}`);
 }
+
+const asProofType = (v: unknown) => (v === "photo" || v === "design" ? v : "website");
 
 // Client edits a draft milestone. Checklist is frozen once funded.
 export async function saveMilestone(milestoneId: string, formData: FormData) {
@@ -54,11 +64,11 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
   const amount = Number(formData.get("amount"));
   if (!requirements.length || !(amount > 0)) throw new Error("Need at least one requirement and an amount");
 
-  const proofType = formData.get("proofType") === "photo" ? "photo" : "website";
+  const proofType = asProofType(formData.get("proofType"));
   const reference = proofType === "website" ? String(formData.get("referenceImage") ?? "") : "";
   if (reference) parsePhoto(reference); // throws on non-images / oversized
   const finalRequirements = reference ? withDesignItem(requirements) : requirements;
-  const notes = await lintChecklist(proofType, finalRequirements);
+  const notes = proofType === "design" ? finalRequirements.map(() => null) : await lintChecklist(proofType, finalRequirements);
 
   await db.transaction(async (tx) => {
     await tx.update(milestones).set({
@@ -121,7 +131,11 @@ export async function submitProof(milestoneId: string, formData: FormData) {
   if (row.j.status !== "accepted") throw new Error("Accept the job before submitting proof");
 
   let proof: { url?: string; beforePhoto?: string; afterPhoto?: string };
-  if (row.m.proofType === "photo") {
+  if (row.m.proofType === "design") {
+    const mockup = String(formData.get("mockup") ?? "");
+    parsePhoto(mockup); // throws on non-images / oversized
+    proof = { afterPhoto: mockup };
+  } else if (row.m.proofType === "photo") {
     const before = String(formData.get("beforePhoto") ?? ""), after = String(formData.get("afterPhoto") ?? "");
     parsePhoto(before); parsePhoto(after); // throws on non-images / oversized
     proof = { beforePhoto: before, afterPhoto: after };
@@ -136,6 +150,12 @@ export async function submitProof(milestoneId: string, formData: FormData) {
     const [prev] = await db.select().from(milestones)
       .where(and(eq(milestones.jobId, row.j.id), eq(milestones.position, row.m.position - 1)));
     if (prev && !["paid_out", "cancelled"].includes(prev.state)) throw new Error("Finish the previous milestone first");
+  }
+
+  if (row.m.proofType === "design") {
+    await submitDesign(row.m, proof.afterPhoto!); // the client reviews it, not the AI
+    revalidatePath(`/jobs/${row.j.id}`);
+    return;
   }
 
   await transition(milestoneId, row.m.state as MilestoneState, "verifying", { failReason: null });
@@ -161,6 +181,19 @@ export async function declineInvitation(jobId: string, formData: FormData) {
   const user = await requireUser();
   await declineJob(jobId, user, String(formData.get("note") ?? ""));
   revalidatePath(`/jobs/${jobId}`);
+}
+
+// Client wants changes to a submitted design (within the agreed rounds).
+export async function requestDesignChanges(milestoneId: string, _: { error?: string }, formData: FormData): Promise<{ error?: string }> {
+  const user = await requireUser();
+  try {
+    await requestChanges(milestoneId, user, String(formData.get("note") ?? ""));
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
+  if (m) revalidatePath(`/jobs/${m.jobId}`);
+  return {};
 }
 
 // Client is happy with the verified work: pay now instead of waiting for the review window.

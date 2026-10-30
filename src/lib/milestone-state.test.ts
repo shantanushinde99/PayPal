@@ -27,6 +27,7 @@ describe("review window and disputes", () => {
     expect(canTransition("failed", "disputed")).toBe(true);
     expect(canTransition("disputed", "paid_out")).toBe(true);
     expect(canTransition("disputed", "cancelled")).toBe(true);
+    expect(canTransition("passed", "failed")).toBe(true); // a design sent back for changes
   });
   it("keeps money states final and disputes out of other states", () => {
     expect(canTransition("funded", "disputed")).toBe(false);

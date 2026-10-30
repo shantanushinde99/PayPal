@@ -27,12 +27,12 @@ const STATES: Record<MilestoneState, { label: string; tone: string; Icon: typeof
   cancelled: { label: "Cancelled", tone: "bg-slate-100 text-slate-500", Icon: Ban },
 };
 
-export function StatusBadge({ state }: { state: string }) {
+export function StatusBadge({ state, label }: { state: string; label?: string }) {
   const s = STATES[state as MilestoneState] ?? STATES.draft;
   return (
     <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${s.tone}`}>
       <s.Icon aria-hidden className={`size-3.5 ${s.spin ? "animate-spin" : ""}`} />
-      {s.label}
+      {label ?? s.label}
     </span>
   );
 }

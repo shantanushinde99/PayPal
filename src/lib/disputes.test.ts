@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
-import { disputes, jobs, milestones, users } from "@/db/schema";
+import { checklistItems, disputes, jobs, milestones, users } from "@/db/schema";
 
 const pp = vi.hoisted(() => ({ createOrder: vi.fn(), authorizeOrder: vi.fn(), captureAuthorization: vi.fn(), voidAuthorization: vi.fn(), createPayout: vi.fn() }));
 vi.mock("@/lib/paypal", () => pp);
@@ -14,7 +14,8 @@ async function setup(state: string, patch = {}) {
   const client = await mk({ roles: ["client"] }), free = await mk({ roles: ["freelancer"] });
   const [job] = await db.insert(jobs).values({ clientId: client.id, freelancerId: free.id, freelancerEmail: free.email, status: "accepted", title: "T", description: "d", currency: "USD" }).returning();
   const [m] = await db.insert(milestones).values({ jobId: job.id, position: 0, title: "M", amountMinor: 1000, state, authorizationId: "AUTH", direct: true, ...patch }).returning();
-  return { client, free, job, m };
+  const [item] = await db.insert(checklistItems).values({ milestoneId: m.id, position: 0, requirement: "Contact form sends a message" }).returning();
+  return { client, free, job, m, item };
 }
 const ms = async (id: string) => (await db.select().from(milestones).where(eq(milestones.id, id)))[0];
 const dp = async (id: string) => (await db.select().from(disputes).where(eq(disputes.milestoneId, id)))[0];
@@ -36,10 +37,16 @@ describe("parseJudgeDecision", () => {
 
 describe("opening a dispute", () => {
   it("lets the client dispute an AI pass during the review window", async () => {
-    const { client, m } = await setup("passed", { releaseAt: new Date(Date.now() + 3600_000) });
-    await openDispute(m.id, client, STATEMENT);
+    const { client, m, item } = await setup("passed", { releaseAt: new Date(Date.now() + 3600_000) });
+    await openDispute(m.id, client, STATEMENT, item.id);
     expect((await ms(m.id)).state).toBe("disputed");
-    expect(await dp(m.id)).toMatchObject({ openedBy: "client", clientStatement: STATEMENT, status: "open" });
+    expect(await dp(m.id)).toMatchObject({ openedBy: "client", clientStatement: `Unmet item: "Contact form sends a message"\n${STATEMENT}`, status: "open" });
+  });
+  it("makes the client name a checklist item of this milestone", async () => {
+    const a = await setup("passed", { releaseAt: new Date(Date.now() + 3600_000) }), b = await setup("passed");
+    await expect(openDispute(a.m.id, a.client, STATEMENT)).rejects.toThrow(/checklist item/);
+    await expect(openDispute(a.m.id, a.client, STATEMENT, b.item.id)).rejects.toThrow(/checklist item/);
+    expect((await ms(a.m.id)).state).toBe("passed");
   });
   it("lets the freelancer dispute an AI fail", async () => {
     const { free, m } = await setup("failed");
@@ -50,9 +57,9 @@ describe("opening a dispute", () => {
     const a = await setup("passed", { releaseAt: new Date(Date.now() + 3600_000) });
     await expect(openDispute(a.m.id, a.free, STATEMENT)).rejects.toThrow();
     await expect(openDispute(a.m.id, await mk(), STATEMENT)).rejects.toThrow();
-    await expect(openDispute(a.m.id, a.client, "bad")).rejects.toThrow(/explain/i);
+    await expect(openDispute(a.m.id, a.client, "bad", a.item.id)).rejects.toThrow(/explain/i);
     const b = await setup("passed", { releaseAt: new Date(Date.now() - 1000) });
-    await expect(openDispute(b.m.id, b.client, STATEMENT)).rejects.toThrow(/window/i);
+    await expect(openDispute(b.m.id, b.client, STATEMENT, b.item.id)).rejects.toThrow(/window/i);
     const c = await setup("failed");
     await expect(openDispute(c.m.id, c.client, STATEMENT)).rejects.toThrow();
   });
@@ -60,8 +67,8 @@ describe("opening a dispute", () => {
 
 describe("judging and settling", () => {
   it("lets the other side respond, then the AI Judge proposes a share", async () => {
-    const { client, free, m } = await setup("passed", { releaseAt: new Date(Date.now() + 3600_000) });
-    await openDispute(m.id, client, STATEMENT);
+    const { client, free, m, item } = await setup("passed", { releaseAt: new Date(Date.now() + 3600_000) });
+    await openDispute(m.id, client, STATEMENT, item.id);
     await respondDispute(m.id, free, "It sends to the bakery inbox; screenshot attached on /contact.");
     await askJudge(m.id, client, judge(70));
     expect(await dp(m.id)).toMatchObject({ status: "judged", judgeShare: 70, freelancerStatement: expect.stringContaining("bakery") });

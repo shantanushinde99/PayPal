@@ -72,6 +72,11 @@ export default async function NewJob({ searchParams }: { searchParams: Promise<{
                 <select id="currency" name="currency" className={field}>{CURRENCIES.map((c) => <option key={c}>{c}</option>)}</select>
               </div>
             </div>
+            <div className="space-y-1.5">
+              <label htmlFor="revisionRounds" className="text-sm font-semibold">Design change rounds included</label>
+              <select id="revisionRounds" name="revisionRounds" defaultValue="2" className={field}>{[0, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select>
+              <p className="text-sm text-ink-soft">For visual work, the AI starts with a design milestone: you approve a mockup before anything is built. This is how many times you can ask for changes; the freelancer agrees to it when they accept.</p>
+            </div>
             <SubmitButton className={`${btn.primary} w-full ${!chosen && user.isDemo ? "pointer-events-none opacity-50" : ""}`} pending="AI is drafting milestones…">
               <Sparkles aria-hidden className="size-4" /> Draft milestones with AI
             </SubmitButton>

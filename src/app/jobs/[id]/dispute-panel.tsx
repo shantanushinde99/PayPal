@@ -19,16 +19,43 @@ function Err({ s }: { s: DisputeState }) {
   return s.error ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">{s.error}</p> : null;
 }
 
-// A form posting a statement (open or respond), with the rule's error shown inline.
-export function StatementForm({ action, label, cta, placeholder }: { action: Action; label: string; cta: string; placeholder: string }) {
+// A form posting a statement (open or respond), with the rule's error shown inline. With `items`, the client
+// must pick the checklist item that isn't met.
+export function StatementForm({ action, label, cta, placeholder, items }: {
+  action: Action; label: string; cta: string; placeholder: string; items?: { id: string; requirement: string }[];
+}) {
   const [state, run] = useActionState(action, {});
   return (
     <form action={run} className="space-y-2">
+      {items && (
+        <label className="block space-y-1 text-sm font-medium">Which checklist item isn&apos;t met?
+          <select name="itemId" required defaultValue="" className={field}>
+            <option value="" disabled>Choose an item you both agreed on…</option>
+            {items.map((c) => <option key={c.id} value={c.id}>{c.requirement}</option>)}
+          </select>
+          <span className="block text-xs font-normal text-ink-soft">Taste and new ideas outside the checklist can&apos;t be disputed; agree them as a new milestone instead.</span>
+        </label>
+      )}
       <label className="block space-y-1 text-sm font-medium">{label}
         <textarea name="statement" required minLength={20} maxLength={2000} rows={3} className={field} placeholder={placeholder} />
       </label>
       <Err s={state} />
       <SubmitButton className={btn.secondary} pending="Sending…">{cta}</SubmitButton>
+    </form>
+  );
+}
+
+// Client asks for changes to a submitted design; the server enforces the agreed number of rounds.
+export function ChangeRequestForm({ action, left, total }: { action: Action; left: number; total: number }) {
+  const [state, run] = useActionState(action, {});
+  return (
+    <form action={run} className="space-y-2">
+      <label className="block space-y-1 text-sm font-medium">What should change? ({left} of {total} rounds left)
+        <textarea name="note" required minLength={10} maxLength={500} rows={3} className={field} disabled={left <= 0}
+          placeholder={left > 0 ? "Make the header warmer, and move the menu above the photos." : "No rounds left: approve the design, or dispute a checklist item."} />
+      </label>
+      <Err s={state} />
+      {left > 0 && <SubmitButton className={btn.secondary} pending="Sending…">Request changes</SubmitButton>}
     </form>
   );
 }
