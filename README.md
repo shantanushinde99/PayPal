@@ -6,7 +6,7 @@
 
 **AI escrow for freelance work. The money is held by PayPal, AI checks the delivered work, and the freelancer is paid when it's done.**
 
-[Live app](https://verifund-l83s.onrender.com) · [Demo sites](https://shantanushinde99.github.io/verifund-demo-sites/) · Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
+[Live app](https://verifund-ckg3gxbeg0a7bzbp.indiasouthcentral-01.azurewebsites.net) · [Demo sites](https://shantanushinde99.github.io/verifund-demo-sites/) · Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
 
 `PayPal Orders · Authorizations · Partial Captures · Webhooks · Disputes · JS SDK (PayPal, Pay Later, Venmo)` · `Google Gemini` · `KERNEL cloud browsers` · `AG Studio`
 
@@ -140,7 +140,7 @@ flowchart LR
         STUDIO["AG Studio<br/>Insights dashboard + AI chat"]
     end
 
-    subgraph Server["Verifund server (Next.js 16 on Render)"]
+    subgraph Server["Verifund server (Next.js 16 on Azure App Service)"]
         ACT["Server actions<br/>jobs · funding · proof · disputes"]
         SM["Milestone state machine<br/>conditional transitions"]
         PAY["Payments<br/>authorize · capture · partial capture · void"]
@@ -263,7 +263,7 @@ sequenceDiagram
 
 ## Tech stack
 
-Next.js 16 (App Router, server actions) · React 19 · TypeScript · Tailwind CSS 4 · Motion · Auth.js (PayPal OAuth + demo provider) · Drizzle ORM · PostgreSQL (Supabase, RLS) · Playwright-core · Vitest (150+ tests) · Render
+Next.js 16 (App Router, server actions) · React 19 · TypeScript · Tailwind CSS 4 · Motion · Auth.js (PayPal OAuth + demo provider) · Drizzle ORM · PostgreSQL (Supabase, RLS) · Playwright-core · Vitest (180+ tests) · Azure App Service
 
 ## Project structure
 
@@ -295,7 +295,7 @@ scripts/                  local Postgres, webhook registration, migrations
 
 ## Try it
 
-**Hosted:** open the [live app](https://verifund-l83s.onrender.com) and click **Try the demo**. You get a private client account with ready-made jobs. Fund one with the PayPal sandbox buyer shown in the yellow banner, switch to the freelancer side and submit a demo site, then watch the AI check it.
+**Hosted:** open the [live app](https://verifund-ckg3gxbeg0a7bzbp.indiasouthcentral-01.azurewebsites.net) and click **Try the live demo**. You get a private client account with ready-made jobs. Fund one with the PayPal sandbox buyer shown in the yellow banner, switch to the freelancer side and submit a demo site, then watch the AI check it.
 
 **Demo sites to submit** (from easy to hard):
 

@@ -1,6 +1,6 @@
 // Registers the deployed app's PayPal webhook (once per PayPal app) and prints PAYPAL_WEBHOOK_ID.
-//   npx tsx --env-file=.env scripts/register-webhook.mts https://verifund-l83s.onrender.com
-// Then set PAYPAL_WEBHOOK_ID in .env and on Render. Idempotent: reuses an existing webhook for the same URL.
+//   npx tsx --env-file=.env scripts/register-webhook.mts https://verifund-ckg3gxbeg0a7bzbp.indiasouthcentral-01.azurewebsites.net
+// Then set PAYPAL_WEBHOOK_ID in .env and in the Azure app settings. Idempotent: reuses an existing webhook for the same URL.
 const base = process.argv[2]?.replace(/\/$/, "");
 if (!base?.startsWith("https://")) { console.error("Pass the public https URL of the app."); process.exit(1); }
 const url = `${base}/api/paypal/webhook`;
