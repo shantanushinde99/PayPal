@@ -30,7 +30,7 @@ Verifund turns "done" into something that can be checked, and lets PayPal hold t
 
 1. **Agree on a checklist.** The client describes the job. Gemini drafts milestones and a checklist of concrete requirements, and flags vague items like "looks nice". Both sides see exactly what the AI will check.
 2. **Fund the milestone.** The client pays with PayPal, Pay Later or Venmo. It's a **PayPal authorization**, so the money is held but not taken.
-3. **Deliver and submit proof.** The freelancer submits a live website URL, or before/after photos for physical work.
+3. **Deliver and submit proof.** The freelancer submits a live website URL, a public GitHub repository (the AI reads the code), or before/after photos for physical work. For visual jobs, a first **design milestone** lets the client approve a mockup, within an agreed number of change rounds, before anything is built.
 4. **AI verifies.** For websites, a real cloud browser (KERNEL) crawls the site, measures facts with code (pages, broken links, emails, phone numbers, forms, phone layout) and lets Gemini use the browser like a person: open pages, click, submit forms with test data. Every checklist item gets *pass / fail / unsure* with evidence.
 5. **Get paid, with a safety net.** If every item passes, a review window starts (24 h by default). The client can approve early or dispute; otherwise PayPal captures the money to the freelancer automatically.
 6. **Disputes are settled fairly.** An **AI Judge** reads the checklist, the evidence and both sides' statements, and proposes a split (for example 70% to the freelancer). Code turns that into a PayPal **partial capture**, and the rest goes back to the client. Either side can reject the decision and send it to a human admin.
@@ -243,7 +243,9 @@ sequenceDiagram
 **Trust and disputes**
 - A review window after an AI pass (24 h, or 2 minutes in demo workspaces), with "Approve & pay now" or "Dispute".
 - The **AI Judge** proposes a split, and the decision settles automatically unless rejected. An **admin** decides escalated cases.
-- Site ownership verification for submitted websites.
+- Site ownership verification for submitted websites and repositories.
+- **Design approval first**: visual jobs start with a mockup the client approves, with a limited number of change rounds agreed up front; the build is then checked against the approved design.
+- Disputes must name the checklist item that isn't met, and the AI Judge ignores taste outside the checklist or the approved design.
 
 **Platform**
 - PayPal login and onboarding as client, freelancer or both, plus a freelancer directory with track records and job invitations.
@@ -301,12 +303,12 @@ scripts/                  local Postgres, webhook registration, migrations
 
 | Site | URL | Notes |
 |---|---|---|
-| Bakery (broken) | `…/demo-sites/bakery-v1/` | Email typo, no contact form, broken link: should **fail** |
-| Bakery (fixed) | `…/demo-sites/bakery-v2/` | Should **pass** the bakery checklist |
-| Greenleaf Dental | `…/demo-sites/intermediate/` | 7 pages, validated booking form, pricing table |
-| Northwind Travel | `…/demo-sites/hard-site/` | A Next.js + React app: client-side navigation, tours loaded in the browser with filters, 3-step React booking wizard, login, currency switcher, cookie bar, pop-up |
+| Bakery (broken) | [`bakery-v1/`](https://shantanushinde99.github.io/verifund-demo-sites/bakery-v1/) | Email typo, no contact form, broken link: should **fail** |
+| Bakery (fixed) | [`bakery-v2/`](https://shantanushinde99.github.io/verifund-demo-sites/bakery-v2/) | Should **pass** the bakery checklist |
+| Greenleaf Dental | [`intermediate/`](https://shantanushinde99.github.io/verifund-demo-sites/intermediate/) | 7 pages, validated booking form, pricing table |
+| Northwind Travel | [`hard-site/`](https://shantanushinde99.github.io/verifund-demo-sites/hard-site/) | A Next.js + React app: client-side navigation, tours loaded in the browser with filters, 3-step React booking wizard, login, currency switcher, cookie bar, pop-up |
 
-Base URL: `https://shantanushinde99.github.io/PayPal`. Ready-to-paste checklists, including items that should fail, are in [`demo-sites/README.md`](demo-sites/README.md), and screenshots for the reference-design upload are in `demo-sites/screenshots/`.
+All four are listed at [shantanushinde99.github.io/verifund-demo-sites](https://shantanushinde99.github.io/verifund-demo-sites/). Ready-to-paste checklists, including items that should fail, are in [`demo-sites/README.md`](demo-sites/README.md), and screenshots for the reference-design upload are in `demo-sites/screenshots/`.
 
 ## Run locally
 
