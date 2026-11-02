@@ -99,7 +99,7 @@ export const geminiJudge: Judge = async ({ prompt }) => {
 
 async function judgePrompt(m: typeof milestones.$inferSelect, j: typeof jobs.$inferSelect, d: typeof disputes.$inferSelect) {
   const items = await db.select().from(checklistItems).where(eq(checklistItems.milestoneId, m.id)).orderBy(asc(checklistItems.position));
-  const [sub] = await db.select().from(submissions).where(eq(submissions.milestoneId, m.id)).orderBy(desc(submissions.createdAt)).limit(1);
+  const [sub] = await db.select().from(submissions).where(and(eq(submissions.preview, false), eq(submissions.milestoneId, m.id))).orderBy(desc(submissions.createdAt)).limit(1);
   const verdict = sub ? await db.select().from(verdictItems).where(eq(verdictItems.submissionId, sub.id)) : [];
   const stored = sub?.report as SiteReport | RepoReport | null | undefined;
   const q = (s: string | null | undefined) => JSON.stringify(s ?? "(no statement)");

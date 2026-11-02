@@ -12,7 +12,7 @@ export async function confirmInbox(milestoneId: string, user: { id: string }, re
   const [row] = await db.select({ m: milestones, j: jobs }).from(milestones).innerJoin(jobs, eq(jobs.id, milestones.jobId)).where(eq(milestones.id, milestoneId));
   if (!row || row.j.clientId !== user.id) throw new Error("Not allowed");
   if (row.m.state !== "passed") throw new Error("This can only be answered while the work is waiting for your approval.");
-  const [sub] = await db.select().from(submissions).where(eq(submissions.milestoneId, milestoneId)).orderBy(desc(submissions.createdAt)).limit(1);
+  const [sub] = await db.select().from(submissions).where(and(eq(submissions.preview, false), eq(submissions.milestoneId, milestoneId))).orderBy(desc(submissions.createdAt)).limit(1);
   if (!sub?.inboxCode) throw new Error("No test message was sent for this delivery.");
   if (sub.inboxConfirmed !== null) throw new Error("You already answered this.");
   await db.update(submissions).set({ inboxConfirmed: received }).where(and(eq(submissions.id, sub.id), eq(submissions.milestoneId, milestoneId)));

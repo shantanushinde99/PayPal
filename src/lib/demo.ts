@@ -1,7 +1,7 @@
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { and, count, eq, gt, inArray, lt, or } from "drizzle-orm";
 import { db } from "@/db";
-import { checklistItems, events, jobs, milestones, payments, submissions, users, verdictItems } from "@/db/schema";
+import { checklistItems, disputes, events, jobs, milestones, payments, scopeRequests, submissions, users, verdictItems } from "@/db/schema";
 import { env } from "@/lib/env";
 
 export const demoEnabled = () => Boolean(env.DEMO_PAYOUT_EMAIL);
@@ -87,7 +87,9 @@ export async function deleteOldDemos(hours = 48) {
     const ids = (await tx.select({ id: users.id }).from(users).where(and(eq(users.isDemo, true), inArray(users.demoGroup, groups)))).map((u) => u.id);
     const js = (await tx.select({ id: jobs.id }).from(jobs).where(or(inArray(jobs.clientId, ids), inArray(jobs.freelancerId, ids)))).map((j) => j.id);
     const ms = js.length ? (await tx.select({ id: milestones.id }).from(milestones).where(inArray(milestones.jobId, js))).map((m) => m.id) : [];
+    if (js.length) await tx.delete(scopeRequests).where(inArray(scopeRequests.jobId, js)); // points at jobs and milestones
     if (ms.length) {
+      await tx.delete(disputes).where(inArray(disputes.milestoneId, ms));
       const subs = (await tx.select({ id: submissions.id }).from(submissions).where(inArray(submissions.milestoneId, ms))).map((s) => s.id);
       if (subs.length) await tx.delete(verdictItems).where(inArray(verdictItems.submissionId, subs));
       await tx.delete(submissions).where(inArray(submissions.milestoneId, ms));

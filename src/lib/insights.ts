@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { checklistItems, jobs, milestones, payments, submissions, users, verdictItems, type User } from "@/db/schema";
 import { myFreelanceWhere } from "@/lib/job-access";
@@ -49,7 +49,7 @@ export async function loadInsights(user: Pick<User, "id" | "email" | "isAdmin">,
       id: submissions.id, milestoneId: submissions.milestoneId, createdAt: submissions.createdAt,
       pages: sql<number | null>`jsonb_array_length(${submissions.report}->'pages')`,
       broken: sql<number | null>`(select count(*)::int from jsonb_array_elements(${submissions.report}->'links') l where (l->>'ok')::boolean is false)`,
-    }).from(submissions).where(inArray(submissions.milestoneId, msIds)),
+    }).from(submissions).where(and(eq(submissions.preview, false), inArray(submissions.milestoneId, msIds))),
   ]) : [[], []];
   const subOf = new Map(subs.map((s) => [s.id, s]));
   const vs = subs.length ? await db.select({ v: verdictItems, requirement: checklistItems.requirement }).from(verdictItems)

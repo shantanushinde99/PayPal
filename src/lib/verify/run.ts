@@ -38,16 +38,13 @@ export async function runVerification(milestoneId: string, submissionId: string)
   }
 }
 
-async function verify(milestoneId: string, submissionId: string): Promise<false | "window" | "now"> {
-  const log = async (message: string, image?: string) => {
-    await db.insert(events).values({ milestoneId, kind: "agent", message, image });
-  };
-  const [sub] = await db.select().from(submissions).where(eq(submissions.id, submissionId));
-  if (!sub) throw new Error("submission not found");
-  const [m] = await db.select().from(milestones).where(eq(milestones.id, milestoneId));
-  const checklist = await db.select().from(checklistItems)
-    .where(eq(checklistItems.milestoneId, milestoneId)).orderBy(asc(checklistItems.position));
-
+// Runs the AI check for one submission. A preview (no money involved) skips the ownership check, the inbox code
+// and the recording: it only tells both sides how far along the work is.
+async function checkProof(
+  m: typeof milestones.$inferSelect, sub: typeof submissions.$inferSelect, checklist: (typeof checklistItems.$inferSelect)[],
+  log: (message: string, image?: string) => Promise<void>, preview = false,
+): Promise<{ verdict: VerdictItem[]; checkError?: string }> {
+  const milestoneId = m.id, submissionId = sub.id;
   let verdict: VerdictItem[];
   let checkError: string | undefined;
   try {
@@ -60,17 +57,17 @@ async function verify(milestoneId: string, submissionId: string): Promise<false 
         .innerJoin(users, eq(users.id, jobs.clientId)).where(eq(jobs.id, m.jobId));
       const url = sub.url ?? "";
       // Ownership is proven on real accounts; demo workspaces (sandbox money) and Verifund's sample sites skip it.
-      const skip = isSampleSite(url) ? "Verifund sample site: ownership check skipped." : j.clientDemo ? "Demo workspace: ownership check skipped. On a real account you'd prove this is yours." : null;
+      const skip = preview ? "Preview check: ownership is checked when you submit for payment." : isSampleSite(url) ? "Verifund sample site: ownership check skipped." : j.clientDemo ? "Demo workspace: ownership check skipped. On a real account you'd prove this is yours." : null;
       const ownerCode = skip ? undefined : ownershipCode(j.freelancerId ?? "none");
-      const testCode = inboxCode(submissionId);
+      const testCode = preview ? undefined : inboxCode(submissionId);
       const r = isCodeHostUrl(url)
         ? await checkRepo({ url, checklist, ownerCode, log, token: env.GITHUB_READ_TOKEN })
         : await checkWebsite({
           url, checklist, reference, ownerCode, testCode, skipNote: skip ?? undefined, log,
-          onReplay: async (mp4) => { await db.insert(replays).values({ submissionId, mp4 }).onConflictDoNothing(); },
+          onReplay: preview ? undefined : async (mp4) => { await db.insert(replays).values({ submissionId, mp4 }).onConflictDoNothing(); },
         });
       verdict = r.verdict;
-      const sent = "formSubmitted" in r && r.formSubmitted; // a test message went out: the client can confirm it arrived
+      const sent = !preview && "formSubmitted" in r && !!r.formSubmitted; // a test message went out: the client can confirm it arrived
       await db.update(submissions).set({ report: r.report, inboxCode: sent ? testCode : null }).where(eq(submissions.id, submissionId));
       if (sent) await log(`A test message with code ${testCode} was sent through the site's form. The client can confirm it reached their inbox.`);
     }
@@ -80,6 +77,20 @@ async function verify(milestoneId: string, submissionId: string): Promise<false 
     await logError(milestoneId, reason);
     verdict = checklist.map((c) => ({ checklistItemId: c.id, status: "unsure", reason }));
   }
+  return { verdict, checkError };
+}
+
+async function verify(milestoneId: string, submissionId: string): Promise<false | "window" | "now"> {
+  const log = async (message: string, image?: string) => {
+    await db.insert(events).values({ milestoneId, kind: "agent", message, image });
+  };
+  const [sub] = await db.select().from(submissions).where(eq(submissions.id, submissionId));
+  if (!sub) throw new Error("submission not found");
+  const [m] = await db.select().from(milestones).where(eq(milestones.id, milestoneId));
+  const checklist = await db.select().from(checklistItems)
+    .where(eq(checklistItems.milestoneId, milestoneId)).orderBy(asc(checklistItems.position));
+
+  const { verdict, checkError } = await checkProof(m, sub, checklist, log);
   await db.insert(verdictItems).values(verdict.map((v) => ({ ...v, submissionId })));
 
   if (!shouldRelease(verdict)) {
@@ -108,4 +119,23 @@ export async function failInterruptedChecks() {
     await transition(id, "verifying", "failed", { failReason: "The check was interrupted by a server restart. Please resubmit." })
       .catch(() => {}); // finished in the meantime
   }
+}
+
+// A preview check: the same AI check on a work-in-progress link. No state change, no money: both sides see progress.
+export async function runPreview(milestoneId: string, submissionId: string) {
+  const log = async (message: string, image?: string) => { await db.insert(events).values({ milestoneId, kind: "agent", message: `Preview: ${message}`, image }); };
+  const [sub] = await db.select().from(submissions).where(eq(submissions.id, submissionId));
+  const [m] = await db.select().from(milestones).where(eq(milestones.id, milestoneId));
+  const checklist = await db.select().from(checklistItems).where(eq(checklistItems.milestoneId, milestoneId)).orderBy(asc(checklistItems.position));
+  let verdict: VerdictItem[];
+  try {
+    verdict = (await checkProof(m, sub, checklist, log, true)).verdict;
+  } catch (e) {
+    console.error("preview crashed", milestoneId, e);
+    const reason = friendlyError(e);
+    verdict = checklist.map((c) => ({ checklistItemId: c.id, status: "unsure", reason }));
+  }
+  await db.insert(verdictItems).values(verdict.map((v) => ({ ...v, submissionId })));
+  const done = verdict.filter((v) => v.status === "pass").length;
+  await db.insert(events).values({ milestoneId, kind: "agent", message: `Preview finished: ${done} of ${verdict.length} items done. Nothing about the payment changed.` });
 }

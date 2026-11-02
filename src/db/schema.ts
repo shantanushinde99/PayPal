@@ -56,6 +56,7 @@ export const milestones = pgTable("milestones", {
   releaseAt: timestamp({ withTimezone: true }), // end of the review window after an AI pass
   capturedMinor: integer(),
   changeRequests: integer().notNull().default(0), // design rounds the client has used
+  pendingAcceptance: boolean().notNull().default(false), // added after the job started: the freelancer must accept it before funding
   excluded: text().array().notNull().default([]), // things both sides agreed are NOT part of this milestone // what was actually paid; less than amountMinor after a split decision
   paypalDisputeId: text(), // a buyer dispute opened on PayPal itself (webhook)
   paypalDisputeStatus: text(),
@@ -80,8 +81,25 @@ export const submissions = pgTable("submissions", {
   report: jsonb(), // SiteReport for website proofs
   inboxCode: text(), // the code the AI put in its test form message; the client confirms it arrived
   inboxConfirmed: boolean(), // null = not answered yet
+  preview: boolean().notNull().default(false), // a progress check on work in progress: never moves money
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
+
+// "Is this included, or new work?" Either side asks; the AI answers against the agreed checklists.
+export const scopeRequests = pgTable("scope_requests", {
+  id: uuid().primaryKey().defaultRandom(),
+  jobId: uuid().notNull().references(() => jobs.id),
+  askedBy: text().notNull(), // client | freelancer
+  request: text().notNull(),
+  verdict: text().notNull(), // included | new
+  reason: text().notNull(),
+  item: text(), // the checklist item that already covers it
+  title: text(), // for new work: a milestone title, checklist and price the client can propose
+  checklist: text().array().notNull().default([]),
+  priceMinor: integer(),
+  milestoneId: uuid().references(() => milestones.id), // the milestone proposed from it
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+}).enableRLS();
 
 // KERNEL's recording of a website check (MP4). Its own table so page loads never pull the bytes.
 export const replays = pgTable("replays", {

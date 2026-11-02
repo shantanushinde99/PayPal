@@ -1,14 +1,14 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { Code2, FlaskConical, Globe, Send } from "lucide-react";
+import { Code2, Eye, FlaskConical, Globe, Send } from "lucide-react";
 import { SubmitButton } from "@/components/submit-button";
 import { CopyId } from "@/components/copy-id";
 import { btn, field } from "@/components/ui";
 import { checkProofLink } from "@/lib/proof-link";
 
 // The freelancer's link: a live website or a public GitHub repo. Problems are explained here, before a check starts.
-export function ProofLinkForm({ action, id, defaultUrl, demo, code }: {
-  action: (formData: FormData) => void; id: string; defaultUrl?: string; demo: boolean; code: string;
+export function ProofLinkForm({ action, id, defaultUrl, demo, code, preview = false }: {
+  action: (formData: FormData) => void; id: string; defaultUrl?: string; demo: boolean; code: string; preview?: boolean;
 }) {
   const [url, setUrl] = useState(defaultUrl ?? "");
   const [touched, setTouched] = useState(false);
@@ -27,7 +27,13 @@ export function ProofLinkForm({ action, id, defaultUrl, demo, code }: {
         <input id={`url-${id}`} name="url" required value={url} onChange={(e) => setUrl(e.target.value)} onBlur={() => setTouched(true)}
           placeholder="https://your-site.com or https://github.com/you/project" className={field} aria-describedby={`url-help-${id}`} />
         <SubmitButton className={`${btn.primary} shrink-0`} pending="Submitting…"><Send aria-hidden className="size-4" /> Submit for AI check</SubmitButton>
+        {preview && (
+          <button type="submit" name="intent" value="preview" className={`${btn.secondary} shrink-0`} title="Runs the same check on work in progress. Nothing about the payment changes.">
+            <Eye aria-hidden className="size-4" /> Preview check
+          </button>
+        )}
       </form>
+      {preview && <p className="text-xs text-ink-soft"><b>Preview check</b>: run the AI on a work-in-progress or staging link any time. You and the client see how many items are done; nothing about the payment changes.</p>}
       <p id={`url-help-${id}`} role={link?.problem && touched ? "alert" : undefined} className="text-sm">
         {link?.problem && touched && <span className="text-red-700">{link.problem}</span>}
         {link?.kind === "website" && <span className="text-ink-soft">Detected: <b>website</b>. The AI will check it in a browser.</span>}

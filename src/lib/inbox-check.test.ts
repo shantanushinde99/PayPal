@@ -35,6 +35,13 @@ describe("inbox check", () => {
     expect(await ms(m.id)).toMatchObject({ state: "failed", releaseAt: null, failReason: expect.stringContaining("VF-AB12") });
   });
 
+  it("ignores a newer preview check: the answer is about the real submission", async () => {
+    const { c, m, s } = await setup();
+    await db.insert(submissions).values({ milestoneId: m.id, url: "https://b.test/staging", preview: true, createdAt: new Date(Date.now() + 60_000) });
+    await confirmInbox(m.id, c, true);
+    expect((await sub(s.id)).inboxConfirmed).toBe(true);
+  });
+
   it("is only for the client, and only when a test message was sent", async () => {
     const a = await setup(), b = await setup(null);
     await expect(confirmInbox(a.m.id, b.c, true)).rejects.toThrow(/not allowed/i);

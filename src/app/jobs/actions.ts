@@ -2,9 +2,9 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, count, eq } from "drizzle-orm";
 import { db } from "@/db";
-import { jobs, milestones, checklistItems, submissions } from "@/db/schema";
+import { jobs, milestones, checklistItems, submissions, verdictItems } from "@/db/schema";
 import { transition } from "@/db/transition";
 import { requireUser } from "@/lib/session";
 import { jobRole } from "@/lib/job-access";
@@ -19,7 +19,8 @@ import { confirmInbox } from "@/lib/inbox-check";
 import { applyExpectations, suggestFor, withBaseline, type Expectation } from "@/lib/expectations";
 import { lintChecklist } from "@/lib/lint-checklist";
 import { startFunding, completeFunding, cancel, release } from "@/lib/payments";
-import { runVerification } from "@/lib/verify/run";
+import { runPreview, runVerification } from "@/lib/verify/run";
+import { answerProposal, askScope, proposeMilestone } from "@/lib/scope";
 import type { MilestoneState } from "@/lib/milestone-state";
 
 export async function createJob(formData: FormData) {
@@ -86,6 +87,9 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
       ...journeys.map((requirement, i) => ({ milestoneId, position: finalRequirements.length + i, requirement, kind: "journey", lintNote: notes[finalRequirements.length + i] })),
     ]);
     await resetAcceptance(row.j.id, tx); // same transaction: no window to fund the old version
+    // Once money is in the job, the job stays accepted: the freelancer accepts this changed milestone on its own.
+    const [j] = await tx.select({ status: jobs.status }).from(jobs).where(eq(jobs.id, row.j.id));
+    if (j?.status === "accepted") await tx.update(milestones).set({ pendingAcceptance: true }).where(eq(milestones.id, milestoneId));
   });
   revalidatePath(`/jobs/${row.j.id}`);
 }
@@ -98,15 +102,19 @@ async function requireClientOf(milestoneId: string) {
   return row;
 }
 
+const fundable = ({ m }: { m: { pendingAcceptance: boolean } }) => {
+  if (m.pendingAcceptance) throw new Error("The freelancer hasn't accepted this milestone yet.");
+};
+
 export async function fundMilestone(milestoneId: string) {
-  await requireClientOf(milestoneId);
+  fundable(await requireClientOf(milestoneId));
   redirect((await startFunding(milestoneId)).approveUrl);
 }
 
 // JS SDK buttons (PayPal, Pay Later, Venmo): same server-side order and authorization, approved in a popup.
 export async function createFundingOrder(milestoneId: string): Promise<{ orderId?: string; error?: string }> {
   try {
-    await requireClientOf(milestoneId);
+    fundable(await requireClientOf(milestoneId));
     return { orderId: (await startFunding(milestoneId, { sdk: true })).orderId };
   } catch (e) {
     console.error("create order failed", milestoneId, e);
@@ -161,6 +169,19 @@ export async function submitProof(milestoneId: string, formData: FormData) {
     if (prev && !["paid_out", "cancelled"].includes(prev.state)) throw new Error("Finish the previous milestone first");
   }
 
+  if (formData.get("intent") === "preview") {
+    if (row.m.proofType !== "website" || !["funded", "failed"].includes(row.m.state)) throw new Error("Preview checks are for website work while the money is held.");
+    const previews = await db.select({ createdAt: submissions.createdAt, verdicts: count(verdictItems.id) }).from(submissions)
+      .leftJoin(verdictItems, eq(verdictItems.submissionId, submissions.id))
+      .where(and(eq(submissions.milestoneId, milestoneId), eq(submissions.preview, true))).groupBy(submissions.id);
+    if (previews.some((p) => !p.verdicts && p.createdAt > new Date(Date.now() - 10 * 60_000))) throw new Error("A preview check is already running.");
+    if (previews.length >= 10) throw new Error("This milestone has used its 10 preview checks. Submit it for the AI check when it's ready.");
+    const [sub] = await db.insert(submissions).values({ milestoneId, ...proof, preview: true }).returning();
+    after(() => runPreview(milestoneId, sub.id));
+    revalidatePath(`/jobs/${row.j.id}`);
+    return;
+  }
+
   if (row.m.proofType === "design") {
     await submitDesign(row.m, proof.afterPhoto!); // the client reviews it, not the AI
     revalidatePath(`/jobs/${row.j.id}`);
@@ -213,6 +234,32 @@ export async function applyExpectationsAction(milestoneId: string, add: string[]
   const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
   if (m) revalidatePath(`/jobs/${m.jobId}`);
   return {};
+}
+
+// "Is this included, or new work?" (either side), then the client may propose new work as a paid milestone.
+export async function askScopeAction(jobId: string, _: { error?: string }, formData: FormData): Promise<{ error?: string }> {
+  const user = await requireUser();
+  try {
+    await askScope(jobId, user, String(formData.get("request") ?? ""));
+  } catch (e) {
+    console.error("scope question failed", jobId, e);
+    return { error: e instanceof Error && !/fetch|quota|model|Gemini|429|503/i.test(e.message) ? e.message : "The AI couldn't answer right now. Please try again." };
+  }
+  revalidatePath(`/jobs/${jobId}`);
+  return {};
+}
+
+export async function proposeMilestoneAction(requestId: string, jobId: string) {
+  const user = await requireUser();
+  await proposeMilestone(requestId, user);
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function answerProposalAction(milestoneId: string, accept: boolean) {
+  const user = await requireUser();
+  await answerProposal(milestoneId, user, accept);
+  const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
+  if (m) revalidatePath(`/jobs/${m.jobId}`);
 }
 
 // Client says whether the AI's test message reached their inbox.

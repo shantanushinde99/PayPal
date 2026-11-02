@@ -2,14 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
-  Hourglass, MailOpen, Palette, PlayCircle, ReceiptText, Scale, Wallet, XCircle,
+  Eye, Hourglass, MailOpen, Palette, PlayCircle, ReceiptText, Scale, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { applyExpectationsAction, confirmInboxAction, findExpectationsAction, saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
+import { answerProposalAction, applyExpectationsAction, askScopeAction, confirmInboxAction, proposeMilestoneAction, findExpectationsAction, saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
@@ -21,6 +21,7 @@ import { shareMinor } from "@/lib/money";
 import { DesignProofForm, PhotoProofForm, PhotoPicker } from "./photo-proof-form";
 import { ProofLinkForm } from "./proof-link-form";
 import { ExpectationFinder } from "./expectation-finder";
+import { ScopeAsk } from "./scope-ask";
 import { PayPalButtons } from "./paypal-buttons";
 import { env } from "@/lib/env";
 
@@ -88,6 +89,66 @@ function StateBanner({ m, currency, freelancer, blocked, rounds }: { m: M; curre
     case "paid_out": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<CheckCircle2 aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{formatMoney(m.capturedMinor ?? m.amountMinor, currency)} paid to {freelancer}.{m.capturedMinor !== null && m.capturedMinor < m.amountMinor && <> {formatMoney(m.amountMinor - m.capturedMinor, currency)} returned to the client.</>}</p></Banner>;
     default: return null;
   }
+}
+
+// A progress check on work in progress: both sides see how far along it is. It never moves money.
+function PreviewPanel({ p, checklist }: { p: NonNullable<M["preview"]>; checklist: M["checklist"] }) {
+  const { running } = p;
+  const done = p.verdict.filter((v) => v.status === "pass").length;
+  return (
+    <details className="rounded-lg border border-line bg-canvas/60 p-3" open={running}>
+      <summary className="flex cursor-pointer flex-wrap items-center gap-2 text-sm font-semibold">
+        <Eye aria-hidden className="size-4" />
+        {running ? <>Preview check running… <Loader2 aria-hidden className="size-4 animate-spin" /></> : p.verdict.length ? <>Preview: {done} of {p.verdict.length} items done</> : <>The preview check didn&apos;t finish. Try again.</>}
+        <span className="font-normal text-ink-soft">· <LocalTime date={p.createdAt} mode="time" /> · no payment involved</span>
+      </summary>
+      {p.verdict.length > 0 && (
+        <ul className="mt-2 space-y-1 text-sm">
+          {checklist.map((c) => {
+            const v = p.verdict.find((x) => x.checklistItemId === c.id);
+            const meta = VERDICT[(v?.status ?? "unsure") as keyof typeof VERDICT] ?? VERDICT.unsure;
+            return <li key={c.id} className="flex gap-2"><meta.Icon aria-label={meta.label} className={`mt-0.5 size-4 shrink-0 ${meta.cls}`} /><span>{c.requirement}{v?.status !== "pass" && v?.reason && <span className="text-ink-soft">: {v.reason}</span>}</span></li>;
+          })}
+        </ul>
+      )}
+      {p.url && <p className="mt-2 break-all text-xs text-ink-soft">Checked: {p.url}</p>}
+    </details>
+  );
+}
+
+// "Is this included, or new work?" Answers stay on the job page so both sides can point to them later.
+function ScopeSection({ data }: { data: Loaded }) {
+  const { job, role, scope } = data;
+  return (
+    <section aria-labelledby="scope" className="space-y-3">
+      <h2 id="scope" className="text-lg font-semibold">Included, or new work?</h2>
+      <Card className="space-y-4 p-5">
+        <p className="text-sm text-ink-soft">New idea or request mid-job? The AI compares it with what you both agreed. If it&apos;s already on a checklist, the freelancer does it. If it&apos;s new, the client can add it as a paid milestone.</p>
+        <ScopeAsk action={askScopeAction.bind(null, job.id)} role={role} />
+        {scope.length > 0 && (
+          <ul className="space-y-3">
+            {scope.map((r) => (
+              <li key={r.id} className="space-y-1.5 rounded-lg bg-canvas px-3 py-2.5 text-sm">
+                <p><span className="capitalize text-ink-soft">{r.askedBy}:</span> &ldquo;{r.request}&rdquo;</p>
+                <p className="flex flex-wrap items-center gap-2">
+                  <span className={`rounded px-1.5 py-0.5 text-xs font-semibold ${r.verdict === "included" ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>{r.verdict === "included" ? "Already included" : "New work"}</span>
+                  <span>{r.reason}</span>
+                </p>
+                {r.item && <p className="text-xs text-ink-soft">Covered by: &ldquo;{r.item}&rdquo;</p>}
+                {r.verdict === "new" && r.priceMinor && <p className="text-xs text-ink-soft">Suggested as a separate milestone: {r.title} · {formatMoney(r.priceMinor, job.currency)}</p>}
+                {r.verdict === "new" && r.milestoneId && <p className="text-xs font-medium text-emerald-800">Added as a milestone below.</p>}
+                {r.verdict === "new" && !r.milestoneId && role === "client" && (
+                  <form action={proposeMilestoneAction.bind(null, r.id, job.id)}>
+                    <SubmitButton className={btn.secondary} pending="Adding…">Add as a paid milestone{r.priceMinor ? ` (${formatMoney(r.priceMinor, job.currency)})` : ""}</SubmitButton>
+                  </form>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </section>
+  );
 }
 
 // The AI's test message carried a code; only the client can see whether it reached their inbox.
@@ -196,6 +257,19 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         </div>
 
         <StateBanner m={m} currency={job.currency} freelancer={data.freelancer.name} blocked={blocked} rounds={job.revisionRounds} />
+        {m.pendingAcceptance && m.state === "draft" && (
+          <Banner tone="bg-sky-50 text-sky-900" icon={<Hourglass aria-hidden className="size-5 shrink-0" />}>
+            <p className="font-semibold">{isClient ? "Waiting for the freelancer to accept this milestone." : "The client added this milestone. Accept it to start."}</p>
+            <p>It was added after the job started, so it can only be funded once the freelancer agrees to it.</p>
+            {!isClient && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                <form action={answerProposalAction.bind(null, m.id, true)}><SubmitButton className={btn.primary} pending="Accepting…"><CheckCircle2 aria-hidden className="size-4" /> Accept milestone</SubmitButton></form>
+                <form action={answerProposalAction.bind(null, m.id, false)}><SubmitButton className={btn.secondary} pending="Declining…">Decline</SubmitButton></form>
+              </div>
+            )}
+          </Banner>
+        )}
+        {m.preview && ["funded", "failed", "verifying"].includes(m.state) && <PreviewPanel p={m.preview} checklist={m.checklist} />}
         {m.paypalDisputeId && (
           <Banner tone="bg-red-50 text-red-900" icon={<Scale aria-hidden className="size-5 shrink-0" />}>
             <p className="font-semibold">PayPal dispute {m.paypalDisputeId}: {m.paypalDisputeStatus?.replaceAll("_", " ").toLowerCase()}</p>
@@ -263,7 +337,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         <Proof m={m} />
 
         <div className="flex flex-wrap items-center gap-3">
-          {isClient && job.status === "accepted" && ["draft", "funding"].includes(m.state) && (
+          {isClient && job.status === "accepted" && !m.pendingAcceptance && ["draft", "funding"].includes(m.state) && (
             <div className="w-full space-y-2">
               <p className="inline-flex items-center gap-1.5 font-semibold"><Lock aria-hidden className="size-4" /> Fund {formatMoney(m.amountMinor, job.currency)}: it stays on hold until the work is verified</p>
               <PayPalButtons
@@ -293,7 +367,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
             ) : m.proofType === "photo" ? (
               <PhotoProofForm action={submitProof.bind(null, m.id)} />
             ) : (
-              <ProofLinkForm action={submitProof.bind(null, m.id)} id={m.id} defaultUrl={m.submission?.url ?? undefined} demo={data.demo} code={ownershipCode(job.freelancerId ?? "none")} />
+              <ProofLinkForm action={submitProof.bind(null, m.id)} id={m.id} defaultUrl={m.submission?.url ?? undefined} demo={data.demo} code={ownershipCode(job.freelancerId ?? "none")} preview={m.proofType === "website"} />
             )}
           </div>
         )}
@@ -409,7 +483,7 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
     <>
       <Header user={user} />
       <AutoRefresh
-        active={milestones.some((m) => m.state === "verifying")}
+        active={milestones.some((m) => m.state === "verifying" || !!m.preview?.running)}
         refreshAt={milestones.filter((m) => m.state === "passed" && m.releaseAt).map((m) => m.releaseAt!.toISOString()).sort()[0]}
       />
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-8">
@@ -452,6 +526,8 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
             })}
           </ol>
         </section>
+
+        {job.status === "accepted" && <ScopeSection data={data} />}
       </main>
     </>
   );

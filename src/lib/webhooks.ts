@@ -37,7 +37,7 @@ async function confirm(paypalId: string, kinds: string[]) {
 async function evidenceNotes(milestoneId: string) {
   const [m] = await db.select().from(milestones).where(eq(milestones.id, milestoneId));
   const items = await db.select().from(checklistItems).where(eq(checklistItems.milestoneId, milestoneId)).orderBy(asc(checklistItems.position));
-  const [sub] = await db.select().from(submissions).where(eq(submissions.milestoneId, milestoneId)).orderBy(desc(submissions.createdAt)).limit(1);
+  const [sub] = await db.select().from(submissions).where(and(eq(submissions.preview, false), eq(submissions.milestoneId, milestoneId))).orderBy(desc(submissions.createdAt)).limit(1);
   const verdict = sub ? await db.select().from(verdictItems).where(eq(verdictItems.submissionId, sub.id)) : [];
   return [
     `Escrow milestone "${m.title}" released by Verifund after automated verification of the delivered work${sub?.url ? ` (${sub.url})` : ""}.`,

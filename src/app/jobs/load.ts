@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { asc, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { jobRole } from "@/lib/job-access";
+import { listScope } from "@/lib/scope";
 import { jobs, milestones, checklistItems, submissions, verdictItems, events, users, disputes, replays } from "@/db/schema";
 
 export async function loadJobForUser(jobId: string, user: { id: string; email: string }) {
@@ -22,14 +23,15 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
     ? await Promise.all([
         db.select().from(checklistItems).where(inArray(checklistItems.milestoneId, ids)).orderBy(asc(checklistItems.position)),
         // Not the audit report: it carries per-page screenshots and this page polls while checks run.
-        db.select({ id: submissions.id, milestoneId: submissions.milestoneId, url: submissions.url, inboxCode: submissions.inboxCode, inboxConfirmed: submissions.inboxConfirmed, beforePhoto: submissions.beforePhoto, afterPhoto: submissions.afterPhoto, createdAt: submissions.createdAt })
+        db.select({ id: submissions.id, milestoneId: submissions.milestoneId, url: submissions.url, preview: submissions.preview, inboxCode: submissions.inboxCode, inboxConfirmed: submissions.inboxConfirmed, beforePhoto: submissions.beforePhoto, afterPhoto: submissions.afterPhoto, createdAt: submissions.createdAt })
           .from(submissions).where(inArray(submissions.milestoneId, ids)).orderBy(desc(submissions.createdAt)),
         db.select().from(events).where(inArray(events.milestoneId, ids)).orderBy(asc(events.createdAt)),
         db.select().from(disputes).where(inArray(disputes.milestoneId, ids)),
       ])
     : [[], [], [], []];
-  const latest = ids.map((id) => subs.find((s) => s.milestoneId === id));
-  const subIds = latest.flatMap((s) => (s ? [s.id] : []));
+  const latest = ids.map((id) => subs.find((s) => s.milestoneId === id && !s.preview));
+  const previews = ids.map((id) => subs.find((s) => s.milestoneId === id && s.preview));
+  const subIds = [...latest, ...previews].flatMap((s) => (s ? [s.id] : []));
   const [verdicts, recorded] = subIds.length
     ? await Promise.all([
         db.select().from(verdictItems).where(inArray(verdictItems.submissionId, subIds)),
@@ -43,8 +45,10 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
     return { name: u?.displayName ?? (email || "Freelancer"), email, detail: u?.company ?? u?.headline ?? null };
   };
 
+  const scope = await listScope(jobId);
+  const checkedAt = Date.now();
   return {
-    job, role, clientEmail: client?.email ?? "", client: person(client), freelancer: person(free),
+    job, role, scope, clientEmail: client?.email ?? "", client: person(client), freelancer: person(free),
     demo: !!client?.isDemo, // demo workspace (sandbox money): links skip the ownership check
     milestones: ms.map((m, i) => ({
       ...m,
@@ -54,6 +58,12 @@ export async function loadJobForUser(jobId: string, user: { id: string; email: s
       verdict: verdicts.filter((v) => v.submissionId === latest[i]?.id),
       events: evs.filter((e) => e.milestoneId === m.id),
       dispute: ds.find((d) => d.milestoneId === m.id) ?? null,
+      // The newest progress check, if it's newer than the last real submission.
+      preview: previews[i] && (!latest[i] || previews[i]!.createdAt > latest[i]!.createdAt)
+        ? (() => {
+            const verdict = verdicts.filter((v) => v.submissionId === previews[i]!.id);
+            return { ...previews[i]!, verdict, running: !verdict.length && previews[i]!.createdAt.getTime() > checkedAt - 10 * 60_000 };
+          })() : null,
     })),
   };
 }
