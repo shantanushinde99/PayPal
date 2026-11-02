@@ -35,6 +35,8 @@ export const jobs = pgTable("jobs", {
   description: text().notNull(),
   currency: text().notNull(),
   revisionRounds: integer().notNull().default(2), // design change requests included; agreed with the job
+  warrantyPercent: integer().notNull().default(0), // share of each live-website milestone held after release while the site is monitored
+  warrantyDays: integer().notNull().default(7),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
@@ -56,6 +58,11 @@ export const milestones = pgTable("milestones", {
   releaseAt: timestamp({ withTimezone: true }), // end of the review window after an AI pass
   capturedMinor: integer(),
   changeRequests: integer().notNull().default(0), // design rounds the client has used
+  warrantyMinor: integer(), // held back at release, still authorized at PayPal
+  warrantyUntil: timestamp({ withTimezone: true }),
+  warrantyStatus: text(), // holding | released | returned
+  warrantyIssue: text(), // what the monitor found broken; null = all fine
+  warrantyCheckedAt: timestamp({ withTimezone: true }),
   pendingAcceptance: boolean().notNull().default(false), // added after the job started: the freelancer must accept it before funding
   excluded: text().array().notNull().default([]), // things both sides agreed are NOT part of this milestone // what was actually paid; less than amountMinor after a split decision
   paypalDisputeId: text(), // a buyer dispute opened on PayPal itself (webhook)
@@ -68,7 +75,8 @@ export const checklistItems = pgTable("checklist_items", {
   milestoneId: uuid().notNull().references(() => milestones.id),
   position: integer().notNull(),
   requirement: text().notNull(),
-  kind: text().notNull().default("item"), // item | journey (a customer task the AI performs end to end)
+  kind: text().notNull().default("item"), // item | journey (the AI performs it) | domain (code checks the host) | handover (the client confirms)
+  confirmed: boolean(), // handover items: the client says they received it; null = not answered
   lintNote: text(), // checklist checker hint, null = fine
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 

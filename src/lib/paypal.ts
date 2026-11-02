@@ -64,10 +64,11 @@ export async function authorizeOrder(orderId: string, milestoneId: string): Prom
   return order.purchase_units[0].payments.authorizations[0].id;
 }
 
-// Full capture, or a partial one: with final_capture the rest of the hold goes back to the buyer.
-export async function captureAuthorization(authorizationId: string, milestoneId: string, part?: { amountMinor: number; currency: string }): Promise<string> {
-  const body = { final_capture: true, ...(part && { amount: { currency_code: part.currency, value: toPayPalValue(part.amountMinor, part.currency) } }) };
-  const cap = await pp(`/v2/payments/authorizations/${authorizationId}/capture`, body, requestId(milestoneId, part ? `capture-${part.amountMinor}` : "capture"));
+// Full capture, or a partial one: with final_capture the rest of the hold goes back to the buyer. Without it
+// (a warranty), the rest stays authorized for a later capture or void.
+export async function captureAuthorization(authorizationId: string, milestoneId: string, part?: { amountMinor: number; currency: string; final?: boolean; tag?: string }): Promise<string> {
+  const body = { final_capture: part?.final ?? true, ...(part && { amount: { currency_code: part.currency, value: toPayPalValue(part.amountMinor, part.currency) } }) };
+  const cap = await pp(`/v2/payments/authorizations/${authorizationId}/capture`, body, requestId(milestoneId, part ? `capture-${part.tag ?? part.amountMinor}` : "capture"));
   return cap.id;
 }
 
@@ -75,9 +76,9 @@ export async function voidAuthorization(authorizationId: string) {
   await pp(`/v2/payments/authorizations/${authorizationId}/void`);
 }
 
-export async function createPayout(p: { milestoneId: string; email: string; amountMinor: number; currency: string; note: string }) {
+export async function createPayout(p: { milestoneId: string; email: string; amountMinor: number; currency: string; note: string; tag?: string }) {
   const res = await pp("/v1/payments/payouts", {
-    sender_batch_header: { sender_batch_id: requestId(p.milestoneId, "payout"), email_subject: "You've been paid via Verifund" },
+    sender_batch_header: { sender_batch_id: requestId(p.milestoneId, p.tag ? `payout-${p.tag}` : "payout"), email_subject: "You've been paid via Verifund" },
     items: [{
       recipient_type: "EMAIL",
       receiver: p.email,
@@ -85,7 +86,7 @@ export async function createPayout(p: { milestoneId: string; email: string; amou
       note: p.note,
       sender_item_id: p.milestoneId,
     }],
-  }, requestId(p.milestoneId, "payout"));
+  }, requestId(p.milestoneId, p.tag ? `payout-${p.tag}` : "payout")); // a second payout (the warranty) needs its own id
   return res.batch_header.payout_batch_id as string;
 }
 

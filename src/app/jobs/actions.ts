@@ -16,6 +16,8 @@ import { checkProofLink } from "@/lib/proof-link";
 import { withDesignItem } from "@/lib/design-reference";
 import { requestChanges, submitDesign } from "@/lib/design-review";
 import { confirmInbox } from "@/lib/inbox-check";
+import { recheckWarranty } from "@/lib/warranty";
+import { cleanDomain, confirmHandover, domainItem } from "@/lib/handover";
 import { applyExpectations, suggestFor, withBaseline, type Expectation } from "@/lib/expectations";
 import { lintChecklist } from "@/lib/lint-checklist";
 import { startFunding, completeFunding, cancel, release } from "@/lib/payments";
@@ -34,6 +36,8 @@ export async function createJob(formData: FormData) {
   const hire = await resolveHire(user, { freelancerId: String(formData.get("freelancerId") ?? "") || undefined, email: String(formData.get("freelancerEmail") ?? "") });
 
   const rounds = Math.min(5, Math.max(0, Math.round(Number(formData.get("revisionRounds") ?? 2)) || 0));
+  const warrantyPercent = Math.min(30, Math.max(0, Math.round(Number(formData.get("warrantyPercent") ?? 25)) || 0));
+  const warrantyDays = [7, 14].includes(Number(formData.get("warrantyDays"))) ? Number(formData.get("warrantyDays")) : 7;
 
   const plan = await planJob(description, budget);
   // After a design milestone, the build is checked against the approved mockup: that's part of what both sides agree to.
@@ -45,7 +49,7 @@ export async function createJob(formData: FormData) {
   });
   const notes = await Promise.all(milestonesPlan.map((m) => (m.proofType === "design" ? m.checklist.map(() => null) : lintChecklist(m.proofType, m.checklist))));
   const jobId = await db.transaction(async (tx) => {
-    const [job] = await tx.insert(jobs).values({ clientId: user.id, ...hire, status: "invited", title: plan.title, description, currency, revisionRounds: rounds }).returning();
+    const [job] = await tx.insert(jobs).values({ clientId: user.id, ...hire, status: "invited", title: plan.title, description, currency, revisionRounds: rounds, warrantyPercent, warrantyDays }).returning();
     for (const [i, m] of milestonesPlan.entries()) {
       const [ms] = await tx.insert(milestones).values({ jobId: job.id, position: i, title: m.title, proofType: m.proofType, amountMinor: toMinor(m.amount, currency) }).returning();
       await tx.insert(checklistItems).values(m.checklist.map((requirement, position) => ({ milestoneId: ms.id, position, requirement, lintNote: notes[i][position] })));
@@ -71,6 +75,12 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
 
   const proofType = asProofType(formData.get("proofType"));
   const journeys = proofType === "website" ? lines("journeys").filter((j) => !requirements.includes(j)).slice(0, 5) : [];
+  const rawDomain = proofType === "website" ? String(formData.get("domain") ?? "").trim() : "";
+  const domain = rawDomain ? cleanDomain(rawDomain) : null;
+  if (rawDomain && !domain) throw new Error("That doesn't look like a domain. Use something like sunrisebakery.com.");
+  const handover = proofType === "design" ? [] : lines("handover").map((h) => h.slice(0, 140)).slice(0, 6);
+  // Ownership items: checked by code (domain) or confirmed by the client (handover), not by the AI.
+  const owned = [...(domain ? [{ requirement: domainItem(domain), kind: "domain" }] : []), ...handover.map((requirement) => ({ requirement, kind: "handover" }))];
   const reference = proofType === "website" ? String(formData.get("referenceImage") ?? "") : "";
   if (reference) parsePhoto(reference); // throws on non-images / oversized
   const finalRequirements = reference ? withDesignItem(requirements) : requirements;
@@ -85,6 +95,7 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
     await tx.insert(checklistItems).values([
       ...finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement, lintNote: notes[position] })),
       ...journeys.map((requirement, i) => ({ milestoneId, position: finalRequirements.length + i, requirement, kind: "journey", lintNote: notes[finalRequirements.length + i] })),
+      ...owned.map((o, i) => ({ milestoneId, position: finalRequirements.length + journeys.length + i, ...o })),
     ]);
     await resetAcceptance(row.j.id, tx); // same transaction: no window to fund the old version
     // Once money is in the job, the job stays accepted: the freelancer accepts this changed milestone on its own.
@@ -189,6 +200,8 @@ export async function submitProof(milestoneId: string, formData: FormData) {
   }
 
   await transition(milestoneId, row.m.state as MilestoneState, "verifying", { failReason: null });
+  // A new delivery: anything the client said was missing gets asked again.
+  await db.update(checklistItems).set({ confirmed: null }).where(and(eq(checklistItems.milestoneId, milestoneId), eq(checklistItems.kind, "handover"), eq(checklistItems.confirmed, false)));
   const [sub] = await db.insert(submissions).values({ milestoneId, ...proof }).returning();
   after(() => runVerification(milestoneId, sub.id));
   revalidatePath(`/jobs/${row.j.id}`);
@@ -258,6 +271,19 @@ export async function proposeMilestoneAction(requestId: string, jobId: string) {
 export async function answerProposalAction(milestoneId: string, accept: boolean) {
   const user = await requireUser();
   await answerProposal(milestoneId, user, accept);
+  const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
+  if (m) revalidatePath(`/jobs/${m.jobId}`);
+}
+
+export async function confirmHandoverAction(itemId: string, jobId: string, received: boolean) {
+  const user = await requireUser();
+  await confirmHandover(itemId, user, received);
+  revalidatePath(`/jobs/${jobId}`);
+}
+
+export async function recheckWarrantyAction(milestoneId: string) {
+  const user = await requireUser();
+  await recheckWarranty(milestoneId, user);
   const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
   if (m) revalidatePath(`/jobs/${m.jobId}`);
 }

@@ -2,14 +2,14 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   AlertTriangle, ArrowLeft, Bot, Camera, CheckCircle2, CircleHelp, ExternalLink, FileText, Globe, Lightbulb, Loader2, Lock,
-  Eye, Hourglass, MailOpen, Palette, PlayCircle, ReceiptText, Scale, Wallet, XCircle,
+  Eye, Hourglass, MailOpen, Palette, PlayCircle, ShieldCheck, ReceiptText, Scale, Wallet, XCircle,
 } from "lucide-react";
 import { requireUser } from "@/lib/session";
 import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { answerProposalAction, applyExpectationsAction, askScopeAction, confirmInboxAction, proposeMilestoneAction, findExpectationsAction, saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
+import { confirmHandoverAction, recheckWarrantyAction, answerProposalAction, applyExpectationsAction, askScopeAction, confirmInboxAction, proposeMilestoneAction, findExpectationsAction, saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
@@ -46,6 +46,12 @@ const VERDICT = {
   unsure: { Icon: CircleHelp, cls: "text-amber-600", label: "Unclear" },
 };
 
+const KIND: Record<string, { label: string; cls: string }> = {
+  journey: { label: "Journey", cls: "bg-violet-100 text-violet-900" },
+  domain: { label: "Domain", cls: "bg-sky-100 text-sky-900" },
+  handover: { label: "Handover", cls: "bg-amber-100 text-amber-900" },
+};
+
 function Checklist({ m }: { m: M }) {
   return (
     <ul className="space-y-2">
@@ -58,7 +64,8 @@ function Checklist({ m }: { m: M }) {
               ? <meta.Icon aria-label={meta.label} className={`mt-0.5 size-5 shrink-0 ${meta.cls}`} />
               : <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-slate-300" />}
             <div className="min-w-0">
-              <p className="font-medium">{c.kind === "journey" && <span className="mr-2 rounded bg-violet-100 px-1.5 py-0.5 align-middle text-xs font-semibold text-violet-900">Journey</span>}{c.requirement}</p>
+              <p className="font-medium">{c.kind !== "item" && <span className={`mr-2 rounded px-1.5 py-0.5 align-middle text-xs font-semibold ${KIND[c.kind]?.cls ?? ""}`}>{KIND[c.kind]?.label}</span>}{c.requirement}</p>
+              {c.kind === "handover" && <p className="text-sm text-ink-soft">{c.confirmed === true ? "Confirmed by the client." : c.confirmed === false ? "The client says this wasn't handed over." : "The client confirms this before paying."}</p>}
               {v?.reason && <p className="text-sm text-ink-soft">{v.reason}</p>}
             </div>
           </li>
@@ -86,9 +93,29 @@ function StateBanner({ m, currency, freelancer, blocked, rounds }: { m: M; curre
     }
     case "passed": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<Hourglass aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">All items verified. {amount} releases automatically{m.releaseAt ? <> on <LocalTime date={m.releaseAt} /></> : " shortly"}.</p><p>The client can approve now or dispute until then. The money stays on hold meanwhile.</p></Banner>;
     case "disputed": return <Banner tone="bg-orange-50 text-orange-950" icon={<Scale aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">In dispute. {amount} stays on hold until it is resolved.</p></Banner>;
-    case "paid_out": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<CheckCircle2 aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{formatMoney(m.capturedMinor ?? m.amountMinor, currency)} paid to {freelancer}.{m.capturedMinor !== null && m.capturedMinor < m.amountMinor && <> {formatMoney(m.amountMinor - m.capturedMinor, currency)} returned to the client.</>}</p></Banner>;
+    case "paid_out": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<CheckCircle2 aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{formatMoney(m.capturedMinor ?? m.amountMinor, currency)} paid to {freelancer}.{m.capturedMinor !== null && m.capturedMinor < m.amountMinor && !["holding", "settling"].includes(m.warrantyStatus ?? "") && <> {formatMoney(m.amountMinor - m.capturedMinor, currency)} returned to the client.</>}</p></Banner>;
     default: return null;
   }
+}
+
+// The share still held after release while the site is checked every day.
+function WarrantyPanel({ m, currency, recheck }: { m: M; currency: string; recheck: () => Promise<void> }) {
+  const amount = formatMoney(m.warrantyMinor!, currency);
+  if (m.warrantyStatus === "released") return <Banner tone="bg-emerald-50 text-emerald-900" icon={<ShieldCheck aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">Warranty ended with the site working: {amount} paid.</p></Banner>;
+  if (m.warrantyStatus === "returned") return <Banner tone="bg-slate-100 text-slate-800" icon={<ShieldCheck aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">Warranty: the site was still broken at the end, so {amount} went back to the client.</p></Banner>;
+  const broken = !!m.warrantyIssue;
+  return (
+    <Banner tone={broken ? "bg-amber-50 text-amber-900" : "bg-sky-50 text-sky-900"} icon={<ShieldCheck aria-hidden className="size-5 shrink-0" />}>
+      <p className="font-semibold">{broken ? `Warranty problem: ${m.warrantyIssue}.` : `Warranty: ${amount} still held while the site is checked daily.`}</p>
+      <p>{broken
+        ? <>Fix it before <LocalTime date={m.warrantyUntil!} />, or {amount} goes back to the client.</>
+        : <>Paid automatically on <LocalTime date={m.warrantyUntil!} /> if the site keeps working.</>}
+        {m.warrantyCheckedAt && <> Last checked <LocalTime date={m.warrantyCheckedAt} mode="time" />.</>}</p>
+      {m.warrantyStatus === "holding" && (
+        <form action={recheck} className="pt-1"><SubmitButton className={btn.secondary} pending="Checking…">Check the site now</SubmitButton></form>
+      )}
+    </Banner>
+  );
 }
 
 // A progress check on work in progress: both sides see how far along it is. It never moves money.
@@ -257,6 +284,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         </div>
 
         <StateBanner m={m} currency={job.currency} freelancer={data.freelancer.name} blocked={blocked} rounds={job.revisionRounds} />
+        {m.warrantyStatus && m.warrantyMinor && <WarrantyPanel m={m} currency={job.currency} recheck={recheckWarrantyAction.bind(null, m.id)} />}
         {m.pendingAcceptance && m.state === "draft" && (
           <Banner tone="bg-sky-50 text-sky-900" icon={<Hourglass aria-hidden className="size-5 shrink-0" />}>
             <p className="font-semibold">{isClient ? "Waiting for the freelancer to accept this milestone." : "The client added this milestone. Accept it to start."}</p>
@@ -289,7 +317,7 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
               </label>
             </div>
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
-              <textarea name="checklist" rows={Math.max(3, m.checklist.length + 1)} className={field} defaultValue={m.checklist.filter((c) => c.kind !== "journey").map((c) => c.requirement).join("\n")} />
+              <textarea name="checklist" rows={Math.max(3, m.checklist.length + 1)} className={field} defaultValue={m.checklist.filter((c) => c.kind === "item").map((c) => c.requirement).join("\n")} />
             </label>
             {m.proofType === "website" && (
               <label className="block space-y-1 text-sm font-medium">Customer journeys (optional, one per line)
@@ -297,6 +325,22 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
                   placeholder="A customer can book a table for 4 on Friday evening and sees a confirmation" />
                 <span className="block text-xs font-normal text-ink-soft">Things a customer must be able to do from start to finish. The AI does each one in a real browser, like a customer, and only passes it if it works.</span>
               </label>
+            )}
+            {m.proofType !== "design" && (
+              <fieldset className="space-y-2 rounded-lg bg-canvas p-3">
+                <legend className="px-1 text-sm font-semibold">Handover: make sure you own what you pay for (optional)</legend>
+                {m.proofType === "website" && (
+                  <label className="block space-y-1 text-sm font-medium">Your domain
+                    <input name="domain" className={field} placeholder="sunrisebakery.com" defaultValue={m.checklist.find((c) => c.kind === "domain")?.requirement.split(": ")[1] ?? ""} />
+                    <span className="block text-xs font-normal text-ink-soft">The site must be delivered on this domain. Checked by code, not the AI.</span>
+                  </label>
+                )}
+                <label className="block space-y-1 text-sm font-medium">What you must receive (one per line)
+                  <textarea name="handover" rows={2} className={field} defaultValue={m.checklist.filter((c) => c.kind === "handover").map((c) => c.requirement).join("\n")}
+                    placeholder={"Admin login for the website\nGitHub repository transferred to my account"} />
+                  <span className="block text-xs font-normal text-ink-soft">Only you can see these, so you confirm each one before paying. A &ldquo;no&rdquo; sends the work back to the freelancer.</span>
+                </label>
+              </fieldset>
             )}
             {m.checklist.some((c) => c.lintNote) && (
               <ul className="space-y-1.5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
@@ -375,6 +419,23 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         {m.submission?.inboxCode && m.state !== "draft" && (
           <InboxCheck code={m.submission.inboxCode} confirmed={m.submission.inboxConfirmed} ask={isClient && m.state === "passed"}
             yes={confirmInboxAction.bind(null, m.id, true)} no={confirmInboxAction.bind(null, m.id, false)} />
+        )}
+        {isClient && m.state === "passed" && m.checklist.some((c) => c.kind === "handover" && c.confirmed === null) && (
+          <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/60 p-4">
+            <p className="font-semibold text-amber-950">Before you pay: did you receive these?</p>
+            <ul className="space-y-2">
+              {m.checklist.filter((c) => c.kind === "handover" && c.confirmed === null).map((c) => (
+                <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm">
+                  <span className="font-medium">{c.requirement}</span>
+                  <span className="flex gap-2">
+                    <form action={confirmHandoverAction.bind(null, c.id, job.id, true)}><SubmitButton className={btn.primary} pending="…">Yes</SubmitButton></form>
+                    <form action={confirmHandoverAction.bind(null, c.id, job.id, false)}><SubmitButton className={btn.secondary} pending="…">No</SubmitButton></form>
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-amber-900">&ldquo;No&rdquo; sends the work back to the freelancer to hand it over (they can dispute it). If you don&apos;t answer, payment releases as usual.</p>
+          </div>
         )}
         {isClient && m.state === "passed" && (
           <div className="space-y-3 rounded-lg border border-emerald-200 p-4">
@@ -477,14 +538,16 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
   const { job, role, milestones, client, freelancer } = data;
   const total = milestones.reduce((s, m) => s + m.amountMinor, 0);
   const paid = milestones.filter((m) => m.state === "paid_out").reduce((s, m) => s + m.amountMinor, 0);
-  const held = milestones.filter((m) => ["funded", "verifying", "failed", "passed"].includes(m.state)).reduce((s, m) => s + m.amountMinor, 0);
+  const held = milestones.filter((m) => ["funded", "verifying", "failed", "passed"].includes(m.state)).reduce((s, m) => s + m.amountMinor, 0)
+    + milestones.filter((m) => m.warrantyStatus === "holding" || m.warrantyStatus === "settling").reduce((s, m) => s + (m.warrantyMinor ?? 0), 0);
 
   return (
     <>
       <Header user={user} />
       <AutoRefresh
         active={milestones.some((m) => m.state === "verifying" || !!m.preview?.running)}
-        refreshAt={milestones.filter((m) => m.state === "passed" && m.releaseAt).map((m) => m.releaseAt!.toISOString()).sort()[0]}
+        refreshAt={[...milestones.filter((m) => m.state === "passed" && m.releaseAt).map((m) => m.releaseAt!.toISOString()),
+          ...milestones.filter((m) => m.warrantyStatus === "holding" && m.warrantyUntil).map((m) => m.warrantyUntil!.toISOString())].sort()[0]}
       />
       <main className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-8">
         <Link href="/" className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-soft hover:text-ink"><ArrowLeft aria-hidden className="size-4" /> Dashboard</Link>
@@ -505,6 +568,10 @@ export default async function JobPage({ params }: { params: Promise<{ id: string
           </dl>
         </div>
 
+        {job.warrantyPercent > 0 && (
+          <p className="flex items-start gap-2 rounded-lg bg-sky-50 px-3 py-2.5 text-sm text-sky-900"><ShieldCheck aria-hidden className="mt-0.5 size-4 shrink-0" />
+            <span><b>Warranty: {job.warrantyPercent}% for {job.warrantyDays} days.</b> When a live website is approved, {job.warrantyPercent}% stays held by PayPal while Verifund checks the site daily. It&apos;s paid automatically if the site keeps working, and goes back to the client only if a page breaks and isn&apos;t fixed in time.</span></p>
+        )}
         <Invitation data={data} />
         <div className="grid grid-cols-3 gap-3">
           {[["Total", total], ["On hold", held], ["Paid", paid]].map(([label, v]) => (

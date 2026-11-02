@@ -5,11 +5,13 @@ export async function register() {
     const { deleteOldDemos } = await import("@/lib/demo");
     const { releaseDue } = await import("@/lib/review-window");
     const { settleDueDisputes } = await import("@/lib/disputes");
+    const { sweepWarranties } = await import("@/lib/warranty");
     // Demo workspaces live 48h (daily sweep); review windows release on the minute.
     const sweepDemos = () => deleteOldDemos(48).catch((e) => console.error("demo cleanup failed", e));
     const sweepReleases = () => Promise.all([
       releaseDue().catch((e) => console.error("auto-release sweep failed", e)),
       settleDueDisputes().catch((e) => console.error("dispute sweep failed", e)),
+      sweepWarranties().catch((e) => console.error("warranty sweep failed", e)),
     ]);
     await sweepDemos();
     await sweepReleases();

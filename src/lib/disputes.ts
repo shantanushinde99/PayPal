@@ -118,7 +118,8 @@ async function judgePrompt(m: typeof milestones.$inferSelect, j: typeof jobs.$in
     "Checklist and the checker's per-item result:",
     ...items.map((c) => {
       const v = verdict.find((x) => x.checklistItemId === c.id);
-      return `- ${c.kind === "journey" ? "JOURNEY " : ""}${q(c.requirement)}: ${v?.status ?? "not checked"}${v ? ` — ${q(v.reason)}${v.evidence ? ` (evidence: ${q(v.evidence)})` : ""}` : ""}`;
+      if (c.kind === "handover") return `- HANDOVER ${q(c.requirement)}: the client ${c.confirmed === true ? "confirmed receiving it" : c.confirmed === false ? "says it was NOT handed over" : "hasn't answered"}`;
+      return `- ${c.kind === "journey" ? "JOURNEY " : c.kind === "domain" ? "DOMAIN (checked by code) " : ""}${q(c.requirement)}: ${v?.status ?? "not checked"}${v ? ` — ${q(v.reason)}${v.evidence ? ` (evidence: ${q(v.evidence)})` : ""}` : ""}`;
     }),
     facts,
     sub?.inboxCode ? `Inbox check: the checker sent a test message (${sub.inboxCode}) through the site's form; the client ${sub.inboxConfirmed === true ? "CONFIRMED it arrived" : sub.inboxConfirmed === false ? "says it did NOT arrive" : "hasn't answered"}.` : "",

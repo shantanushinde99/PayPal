@@ -14,6 +14,7 @@ import { friendlyError } from "@/lib/friendly-error";
 import { isSampleSite, ownershipCode } from "@/lib/ownership";
 import { approvedDesign } from "@/lib/design-review";
 import { inboxCode } from "@/lib/inbox-check";
+import { domainVerdict } from "@/lib/handover";
 
 const logError = (milestoneId: string, message: string) => db.insert(events).values({ milestoneId, kind: "error", message });
 
@@ -41,10 +42,13 @@ export async function runVerification(milestoneId: string, submissionId: string)
 // Runs the AI check for one submission. A preview (no money involved) skips the ownership check, the inbox code
 // and the recording: it only tells both sides how far along the work is.
 async function checkProof(
-  m: typeof milestones.$inferSelect, sub: typeof submissions.$inferSelect, checklist: (typeof checklistItems.$inferSelect)[],
+  m: typeof milestones.$inferSelect, sub: typeof submissions.$inferSelect, all: (typeof checklistItems.$inferSelect)[],
   log: (message: string, image?: string) => Promise<void>, preview = false,
 ): Promise<{ verdict: VerdictItem[]; checkError?: string }> {
   const milestoneId = m.id, submissionId = sub.id;
+  // Handover items are confirmed by the client and the domain is checked by code: the AI judges the rest.
+  const checklist = all.filter((c) => c.kind !== "handover" && c.kind !== "domain");
+  const byCode = all.filter((c) => c.kind === "domain").map((c) => domainVerdict(c, sub.url ?? ""));
   let verdict: VerdictItem[];
   let checkError: string | undefined;
   try {
@@ -77,7 +81,7 @@ async function checkProof(
     await logError(milestoneId, reason);
     verdict = checklist.map((c) => ({ checklistItemId: c.id, status: "unsure", reason }));
   }
-  return { verdict, checkError };
+  return { verdict: [...verdict, ...byCode], checkError };
 }
 
 async function verify(milestoneId: string, submissionId: string): Promise<false | "window" | "now"> {
@@ -133,7 +137,7 @@ export async function runPreview(milestoneId: string, submissionId: string) {
   } catch (e) {
     console.error("preview crashed", milestoneId, e);
     const reason = friendlyError(e);
-    verdict = checklist.map((c) => ({ checklistItemId: c.id, status: "unsure", reason }));
+    verdict = checklist.filter((c) => c.kind !== "handover").map((c) => ({ checklistItemId: c.id, status: "unsure", reason }));
   }
   await db.insert(verdictItems).values(verdict.map((v) => ({ ...v, submissionId })));
   const done = verdict.filter((v) => v.status === "pass").length;

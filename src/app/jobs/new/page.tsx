@@ -77,6 +77,18 @@ export default async function NewJob({ searchParams }: { searchParams: Promise<{
               <select id="revisionRounds" name="revisionRounds" defaultValue="2" className={field}>{[0, 1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}</select>
               <p className="text-sm text-ink-soft">For visual work, the AI starts with a design milestone: you approve a mockup before anything is built. This is how many times you can ask for changes; the freelancer agrees to it when they accept.</p>
             </div>
+            <fieldset className="space-y-1.5">
+              <legend className="text-sm font-semibold">Warranty after delivery</legend>
+              <div className="grid grid-cols-2 gap-3">
+                <select name="warrantyPercent" defaultValue="25" aria-label="Share kept as warranty" className={field}>
+                  {[0, 10, 15, 20, 25, 30].map((n) => <option key={n} value={n}>{n ? `${n}% held` : "No warranty"}</option>)}
+                </select>
+                <select name="warrantyDays" defaultValue="7" aria-label="Warranty length" className={field}>
+                  <option value="7">for 7 days</option><option value="14">for 14 days</option>
+                </select>
+              </div>
+              <p className="text-sm text-ink-soft">For a live website, this share stays held by PayPal after the work is approved, while Verifund checks the site every day. If it keeps working, it&apos;s paid automatically. If a page breaks and isn&apos;t fixed by the end, it comes back to you. Only the daily check can hold it back.</p>
+            </fieldset>
             <SubmitButton className={`${btn.primary} w-full ${!chosen && user.isDemo ? "pointer-events-none opacity-50" : ""}`} pending="AI is drafting milestones…">
               <Sparkles aria-hidden className="size-4" /> Draft milestones with AI
             </SubmitButton>
