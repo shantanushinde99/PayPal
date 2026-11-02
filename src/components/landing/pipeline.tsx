@@ -1,13 +1,14 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { MotionConfig, motion, useInView } from "motion/react";
-import { Bot, CircleDollarSign, FileCheck2, Lock, Wallet } from "lucide-react";
+import { Bot, CircleDollarSign, FileCheck2, Lock, ShieldCheck, Wallet } from "lucide-react";
 
 const STEPS = [
-  { Icon: FileCheck2, title: "Agree on “done”", text: "Describe the job in plain words. AI drafts milestones and a checklist that both sides can verify, and flags anything too vague." },
-  { Icon: Lock, title: "Fund the milestone", text: "The client pays with PayPal. The money is authorized and held: the freelancer can see it's there, nobody can move it." },
-  { Icon: Bot, title: "AI verifies the proof", text: "The freelancer submits a live site or before/after photos. An AI agent crawls every page, tests links and forms, and cites evidence." },
-  { Icon: Wallet, title: "Released automatically", text: "Every item passes → PayPal releases the payment at once. Something missing → it stays on hold with a clear list of fixes." },
+  { Icon: FileCheck2, title: "Agree on “done”", text: "AI turns the job into a checklist, lists what clients usually forget, and starts visual work with a design you approve first." },
+  { Icon: Lock, title: "Fund with PayPal", text: "PayPal, Pay Later or Venmo. The money is held, not paid: the freelancer sees it's there, nobody can move it." },
+  { Icon: Bot, title: "AI verifies the work", text: "A cloud browser opens every page, tests the forms and does customer tasks like booking a table, with evidence for each item." },
+  { Icon: Wallet, title: "Approve and get paid", text: "You confirm the test message and the handover. Everything passes → paid. A disagreement → the AI Judge splits it fairly." },
+  { Icon: ShieldCheck, title: "Warranty", text: "25% stays held for a week while the site is checked daily. Still working at the end → paid automatically." },
 ];
 const STEP_S = 0.7;
 const START_S = 0.3;
@@ -17,7 +18,7 @@ const REPLAY_MS = 10_000; // how often the payment run replays while the section
 function Run({ steps }: { steps: number }) {
   const travel = { duration: STEP_S * (steps - 1), ease: "easeInOut" as const, delay: START_S };
   return (
-    <div aria-hidden className="absolute left-[12.5%] right-[12.5%] top-7 hidden h-1 rounded-full bg-line md:block">
+    <div aria-hidden className="absolute left-[10%] right-[10%] top-7 hidden h-1 rounded-full bg-line md:block">
       <motion.div
         className="h-full origin-left rounded-full bg-gradient-to-r from-brand via-violet-500 to-emerald-500"
         initial={{ scaleX: 0 }}
@@ -27,8 +28,8 @@ function Run({ steps }: { steps: number }) {
       <motion.span
         className="absolute -top-2.5 z-20 grid size-6 -translate-x-1/2 place-items-center rounded-full bg-amber-400 text-amber-950 shadow-lg"
         initial={{ left: "0%" }}
-        animate={{ left: ["0%", "33.3%", "66.6%", "100%"] }}
-        transition={{ ...travel, times: [0, 0.33, 0.66, 1] }}
+        animate={{ left: Array.from({ length: steps }, (_, i) => `${(i / (steps - 1)) * 100}%`) }}
+        transition={{ ...travel, times: Array.from({ length: steps }, (_, i) => i / (steps - 1)) }}
       >
         <CircleDollarSign className="size-4" />
       </motion.span>
@@ -51,7 +52,7 @@ export function Pipeline() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <ol ref={ref} className="relative grid gap-6 md:grid-cols-4 md:gap-5">
+      <ol ref={ref} className="relative grid gap-6 md:grid-cols-5 md:gap-4">
         {seen && <Run key={cycle} steps={STEPS.length} />}
         {STEPS.map(({ Icon, title, text }, i) => (
           <motion.li
@@ -71,7 +72,7 @@ export function Pipeline() {
               <Icon aria-hidden className="size-6" />
               <span className="absolute -right-2 -top-2 grid size-6 place-items-center rounded-full bg-brand text-xs font-bold text-white">{i + 1}</span>
             </motion.span>
-            <div className="space-y-1.5 md:px-2">
+            <div className="space-y-1.5 md:px-1">
               <h3 className="text-lg font-semibold">{title}</h3>
               <p className="leading-relaxed text-ink-soft">{text}</p>
             </div>

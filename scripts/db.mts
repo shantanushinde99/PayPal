@@ -8,6 +8,7 @@ const pg = new EmbeddedPostgres({ databaseDir: dir, user: "pod", password: "pod"
 if (!existsSync(`${dir}/PG_VERSION`)) await pg.initialise();
 await pg.start();
 await pg.createDatabase("pod").catch(() => {}); // already exists
+await pg.createDatabase("pod_test").catch(() => {}); // for `npm test`
 console.log("Postgres running on postgres://pod:pod@localhost:5433/pod (Ctrl+C to stop)");
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {

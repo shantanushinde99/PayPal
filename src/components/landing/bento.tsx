@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { MotionConfig, animate, motion, useInView } from "motion/react";
-import { Camera, Check, Lightbulb, Palette, RotateCcw, ScanSearch, ShieldCheck, Sparkles, X } from "lucide-react";
+import { Camera, Check, Footprints, Lightbulb, Palette, RotateCcw, Scale, ScanSearch, SearchCheck, ShieldCheck, Sparkles, X } from "lucide-react";
 
 // Track the cursor per tile for the .spot glow (pure CSS vars, no re-render).
 function onSpot(e: PointerEvent<HTMLElement>) {
@@ -228,6 +228,102 @@ function DesignMatch() {
   );
 }
 
+// A counter that steps 0..max while the tile is on screen, then starts over. Drives the small loops below.
+function useLoop(max: number, ms: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  const inView = useInView(ref, { amount: 0.4 });
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!inView) return;
+    const t = setInterval(() => setN((x) => (x >= max ? 0 : x + 1)), ms);
+    return () => clearInterval(t);
+  }, [inView, max, ms]);
+  return [ref, n] as const;
+}
+
+// 7. "Did you forget anything?": suggestions appear, some join the checklist, the rest are written down as not included.
+const EXPECT = [
+  { t: "Contact form really reaches your inbox", add: true }, { t: "Opening hours on every page", add: true },
+  { t: "Online ordering", add: false }, { t: "A blog", add: false },
+];
+function ExpectDemo() {
+  const [ref, n] = useLoop(EXPECT.length * 2 + 3, 700);
+  return (
+    <div ref={ref} className="space-y-2">
+      {EXPECT.map((e, i) => {
+        const shown = n > i, decided = n > EXPECT.length + i;
+        return (
+          <motion.div key={e.t} animate={{ opacity: shown ? 1 : 0, y: shown ? 0 : 6 }} className="flex items-center justify-between gap-2 rounded-lg bg-canvas px-3 py-2 text-sm">
+            <span className="flex items-center gap-2"><span className={`grid size-4 place-items-center rounded border ${decided && e.add ? "border-violet-600 bg-violet-600 text-white" : "border-slate-300 bg-white"}`}>{decided && e.add && <Check aria-hidden className="size-3" />}</span>{e.t}</span>
+            {decided && <span className={`shrink-0 rounded px-1.5 py-0.5 text-[11px] font-semibold ${e.add ? "bg-emerald-100 text-emerald-900" : "bg-slate-200 text-slate-700"}`}>{e.add ? "Added" : "Not included"}</span>}
+          </motion.div>
+        );
+      })}
+    </div>
+  );
+}
+
+// 8. A customer journey, done by the agent in a real browser.
+const JOURNEY = ["open  /book", "fill  Name = Test Customer", "pick  Treatment = Cleaning", "pick  Date = Mon 09:00", "click Request appointment", "saw   “Appointment requested ✓ GL-6IAIL”"];
+function JourneyDemo() {
+  const [ref, n] = useLoop(JOURNEY.length + 4, 650);
+  return (
+    <div ref={ref} className="h-full min-h-52 rounded-2xl bg-night p-4 font-mono text-[12.5px] leading-6 text-slate-300">
+      <p className="mb-1 text-slate-500">journey: “a patient can book a weekday appointment”</p>
+      {JOURNEY.slice(0, Math.min(n, JOURNEY.length)).map((l, i) => (
+        <motion.p key={l} initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }} className={`flex items-center gap-2 ${i === JOURNEY.length - 1 ? "text-emerald-300" : ""}`}>
+          <span className="text-slate-500">{String(i + 1).padStart(2, "0")}</span>{l}
+        </motion.p>
+      ))}
+      {n > JOURNEY.length && <p className="mt-1 inline-flex items-center gap-1.5 rounded bg-emerald-500/15 px-2 text-emerald-300"><Check aria-hidden className="size-3.5" /> Journey passed</p>}
+    </div>
+  );
+}
+
+// 9. Warranty: 75% paid now, 25% held while the site is checked every day, then released.
+function WarrantyDemo() {
+  const [ref, n] = useLoop(10, 600);
+  const days = Math.min(n, 7), released = n >= 8;
+  return (
+    <div ref={ref} className="space-y-3">
+      <div className="flex h-9 overflow-hidden rounded-xl text-xs font-semibold">
+        <div className="flex w-3/4 items-center justify-center bg-emerald-500 text-white">$225 paid</div>
+        <motion.div animate={{ backgroundColor: released ? "#10b981" : "#fbbf24" }} className="flex w-1/4 items-center justify-center text-emerald-950">{released ? "$75 paid" : "$75 held"}</motion.div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        {Array.from({ length: 7 }, (_, i) => (
+          <span key={i} className={`grid size-7 place-items-center rounded-lg text-[11px] font-semibold ${i < days ? "bg-emerald-100 text-emerald-800" : "bg-canvas text-ink-soft"}`}>{i < days ? <Check aria-hidden className="size-3.5" /> : i + 1}</span>
+        ))}
+        <span className="ml-1 text-xs text-ink-soft">{released ? "Site kept working: released" : `Day ${Math.max(1, days)} of 7: all pages load`}</span>
+      </div>
+    </div>
+  );
+}
+
+// 10. Mid-job requests, refereed against the agreement.
+const SCOPE = [
+  { q: "Show prices next to each menu item", included: true, a: "Already on the checklist" },
+  { q: "Add online ordering", included: false, a: "Suggested as a $150 milestone" },
+];
+function ScopeDemo() {
+  const [ref, n] = useLoop(5, 900);
+  return (
+    <div ref={ref} className="space-y-2.5">
+      {SCOPE.map((r, i) => (
+        <motion.div key={r.q} animate={{ opacity: n > i * 2 ? 1 : 0.25 }} className="space-y-1.5 rounded-lg bg-canvas px-3 py-2 text-sm">
+          <p>&ldquo;{r.q}&rdquo;</p>
+          {n > i * 2 + 1 && (
+            <motion.p initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
+              <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${r.included ? "bg-emerald-100 text-emerald-900" : "bg-amber-100 text-amber-900"}`}>{r.included ? "Included" : "New work"}</span>
+              <span className="ml-2 text-xs text-ink-soft">{r.a}</span>
+            </motion.p>
+          )}
+        </motion.div>
+      ))}
+    </div>
+  );
+}
+
 export function Bento() {
   return (
     <MotionConfig reducedMotion="user">
@@ -252,8 +348,20 @@ export function Bento() {
             <Counter to={3} label="of 6 items verified" tone="text-amber-600" />
           </div>
         </Tile>
-        <Tile Icon={Palette} title="Design match" text="Upload a mockup; the live homepage is compared with it.">
+        <Tile Icon={Palette} title="Design approved first" text="Visual jobs start with a mockup you approve, with agreed change rounds. The build is then checked against it.">
           <DesignMatch />
+        </Tile>
+        <Tile className="lg:col-span-2" Icon={Footprints} title="Customer journeys" text="Write what a customer must be able to do. The agent does it in a real browser, step by step, and only passes it if it works.">
+          <JourneyDemo />
+        </Tile>
+        <Tile Icon={SearchCheck} title="Did you forget anything?" text="Before you pay, AI lists what clients usually assume is included. You decide; the rest is written down as not included.">
+          <ExpectDemo />
+        </Tile>
+        <Tile className="lg:col-span-2" Icon={ShieldCheck} title="25% warranty, checked daily" text="After approval, part of the payment stays held while the site is checked every day. Only a page that's still broken at the end sends it back.">
+          <WarrantyDemo />
+        </Tile>
+        <Tile Icon={Scale} title="Included, or new work?" text="Mid-job requests are compared with what you agreed. New ideas become paid milestones, not free extras.">
+          <ScopeDemo />
         </Tile>
       </div>
     </MotionConfig>

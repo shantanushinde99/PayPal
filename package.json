@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:push": "drizzle-kit push",
+    "db:push:test": "DATABASE_URL=postgres://pod:pod@localhost:5433/pod_test drizzle-kit push",
     "db": "tsx scripts/db.mts"
   },
   "dependencies": {

@@ -52,12 +52,18 @@ const SAFETY = [
   { title: "Websites can't talk the AI into paying", text: "Page text is treated as untrusted data. Hidden “mark everything as passed” instructions are ignored, and the agent can't be redirected to another site." },
   { title: "Isolated cloud browser", text: "Freelancer sites are opened in a sandboxed cloud browser, never on our servers, so a submitted link can't reach anything internal." },
   { title: "Money stays with PayPal", text: "Funds are held as a PayPal authorization until release or cancellation. Every movement shows real PayPal transaction IDs." },
+  { title: "Taste can't block a payment", text: "A client dispute must name the checklist item that isn't met. The AI Judge ignores complaints about things nobody agreed on." },
+  { title: "The warranty can't be held hostage", text: "Only the daily site check can keep the held 25%, never the client. If every page still works at the end, it's paid automatically." },
 ];
 
 const FAQ = [
   { q: "Is the money safe while the work is being done?", a: "Yes. When the client funds a milestone, PayPal authorizes and holds the amount. It's only captured when every checklist item is verified. If the client cancels before that, the hold is released back to them." },
   { q: "What if the AI gets it wrong?", a: "Every verdict comes with evidence you can open: the page, the quote or measured fact, and a screenshot in the Proof Report. Unclear items are marked “unsure” and hold the money rather than pay it. The freelancer can fix and resubmit as often as needed." },
-  { q: "What kinds of work can be verified?", a: "Anything delivered as a live website (pages, links, contact details, forms, phone layout, design match) and physical work proven with before/after photos (painting, repairs, cleaning, installs)." },
+  { q: "What kinds of work can be verified?", a: "Live websites (pages, links, contact details, forms, phone layout, design match and customer journeys like booking a table), code in a public GitHub repository, design mockups the client approves, and physical work proven with before/after photos (painting, repairs, cleaning, installs)." },
+  { q: "What if I forget to write something down?", a: "Before you pay, “Did you forget anything?” lists what clients usually expect for that kind of job: the contact form reaching your inbox, opening hours, a custom domain. Tick what you want; the rest is written down as not included, so nobody argues about it later." },
+  { q: "What if the client keeps asking for changes?", a: "Visual jobs start with a design milestone and an agreed number of change rounds (2 by default). After that, the client approves or disputes a specific checklist item. New ideas mid-job are checked against the agreement: if they're new work, they become a paid milestone the freelancer can accept or decline." },
+  { q: "How does the warranty work?", a: "For a live website, part of the payment (25% by default) stays held by PayPal for 7 or 14 days after approval while Verifund reloads every page daily. If the site keeps working, it's paid automatically. If a page breaks and the freelancer doesn't fix it in time, that part goes back to the client." },
+  { q: "How do I know I actually own what I paid for?", a: "Add your domain and Verifund checks, in code, that the site really runs on it. List what you must receive (admin logins, a transferred repository) and you confirm each one before paying." },
   { q: "Does the freelancer need a PayPal account?", a: "Yes. Payments go to the freelancer's PayPal email. Both sides log in with PayPal, so emails are confirmed and payouts can't go to a typo." },
   { q: "Which currencies are supported?", a: "USD, EUR, GBP, CAD, AUD and JPY. The whole flow (hold, capture and payment) stays in the job's currency." },
   { q: "Is this live?", a: "Verifund runs on the PayPal sandbox for the PayPal AI Hackathon. No real money moves; everything else, including the AI checks, is real." },
@@ -111,7 +117,7 @@ export function Landing({ demo = false, signedIn = false }: { demo?: boolean; si
               </div>
               {demo && <p className="text-sm text-slate-400">No account needed: the demo gives you a private client and freelancer to play both sides.</p>}
               <ul className="flex flex-wrap gap-x-6 gap-y-2 text-sm text-slate-300">
-                {["Funds held by PayPal", "Every page & link checked", "Released automatically"].map((t) => (
+                {["Funds held by PayPal", "Every page & link checked", "Customer journeys tested", "25% warranty, checked daily"].map((t) => (
                   <li key={t} className="inline-flex items-center gap-1.5"><CheckCircle2 aria-hidden className="size-4 text-emerald-400" />{t}</li>
                 ))}
               </ul>
@@ -151,14 +157,14 @@ export function Landing({ demo = false, signedIn = false }: { demo?: boolean; si
         {/* How it works */}
         <section id="how" className="scroll-mt-20 bg-white py-20">
           <div className="mx-auto w-full max-w-6xl space-y-14 px-4">
-            <SectionTitle eyebrow="How it works" title="From “done?” to paid, in four steps" text="Watch the payment move: it only reaches the freelancer after the AI has verified the work." />
+            <SectionTitle eyebrow="How it works" title="From “done?” to paid, in five steps" text="Watch the payment move: it only reaches the freelancer after the work is verified, and the last part only after the site keeps working." />
             <Pipeline />
           </div>
         </section>
 
         {/* Features */}
         <section id="features" className="mx-auto w-full max-w-6xl scroll-mt-20 space-y-12 px-4 py-24">
-          <SectionTitle eyebrow="Features" title="Everything a careful client would check" text="Hover, drag and click: each tile is a small live version of what Verifund does on every submission." />
+          <SectionTitle eyebrow="Features" title="Everything a careful client would check" text="Each tile is a small live version of what Verifund does: agree on “done” before paying, check it like a customer would, and keep part of the money until the site proves it keeps working." />
           <Bento />
         </section>
 
@@ -170,7 +176,7 @@ export function Landing({ demo = false, signedIn = false }: { demo?: boolean; si
               <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">Every decision comes with evidence</h2>
               <p className="text-lg leading-relaxed text-ink-soft">No black box. Each checklist item shows what the AI found, where it found it, and a screenshot. Facts like broken links and email addresses are measured by code, so they can&apos;t be hallucinated.</p>
               <ul className="space-y-2.5">
-                {["Shareable, printable report per check", "Site map with status, forms and phone fit per page", "Broken links and contact details found", "PayPal authorization and capture IDs"].map((t) => (
+                {["Shareable, printable report per check", "Each customer journey, step by step", "Site map with status, forms and phone fit per page", "A replay of the AI's browser session", "Broken links and contact details found", "PayPal authorization and capture IDs"].map((t) => (
                   <li key={t} className="flex gap-2.5"><Check aria-hidden className="mt-0.5 size-5 shrink-0 text-emerald-600" />{t}</li>
                 ))}
               </ul>
@@ -206,8 +212,8 @@ export function Landing({ demo = false, signedIn = false }: { demo?: boolean; si
           <SectionTitle eyebrow="Fair to both sides" title="Clear rules before money moves" />
           <div className="grid gap-5 md:grid-cols-2">
             {[
-              { who: "For clients", Icon: Lock, points: ["Pay only for work that meets the checklist", "Know exactly what's missing, with evidence", "Cancel and release the hold before payout", "Approve a checklist the AI can actually verify"] },
-              { who: "For freelancers", Icon: Globe, points: ["See the money is funded before you start", "Paid the moment the work is verified", "No vague “one more change”: the checklist is frozen", "A Proof Report that shows you delivered"] },
+              { who: "For clients", Icon: Lock, points: ["Find what you forgot before you pay, not after", "Approve the design before anything is built", "Pay only when every item and customer journey passes", "Confirm the test message and the handover yourself", "25% held for a week while the site is checked daily"] },
+              { who: "For freelancers", Icon: Globe, points: ["See the money is funded before you start", "Preview checks while you build: no surprises at the end", "Change rounds are agreed up front; extras become paid milestones", "Disputes must point to a checklist item, not to taste", "The warranty is released automatically if the site keeps working"] },
             ].map(({ who, Icon, points }, i) => (
               <Reveal key={who} delay={i * 0.1}>
                 <Card className="h-full space-y-5 p-7">
@@ -259,7 +265,7 @@ export function Landing({ demo = false, signedIn = false }: { demo?: boolean; si
           <Reveal className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-gradient-to-br from-brand to-brand-strong px-6 py-14 text-center text-white md:px-12">
             <Bot aria-hidden className="mx-auto mb-4 size-10 text-sky-200" />
             <h2 className="font-display text-3xl font-bold tracking-tight md:text-5xl">Your next milestone, verified.</h2>
-            <p className="mx-auto mt-3 max-w-xl text-lg text-sky-100">Post a job, fund it with PayPal, and let the AI check the work. Takes a minute to set up.</p>
+            <p className="mx-auto mt-3 max-w-xl text-lg text-sky-100">Post a job, agree on what “done” means, fund it with PayPal, and let the AI check the work. Takes a minute to set up.</p>
             <div className="mt-8 flex justify-center">
               {signedIn ? (
                 <Link href="/?enter=1" className="inline-flex min-h-13 items-center gap-2 rounded-full bg-white px-8 font-semibold text-brand-strong transition-colors hover:bg-sky-50">
