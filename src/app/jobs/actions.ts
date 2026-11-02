@@ -119,7 +119,14 @@ const fundable = ({ m }: { m: { pendingAcceptance: boolean } }) => {
 
 export async function fundMilestone(milestoneId: string) {
   fundable(await requireClientOf(milestoneId));
-  redirect((await startFunding(milestoneId)).approveUrl);
+  let approveUrl: string;
+  try {
+    approveUrl = (await startFunding(milestoneId)).approveUrl;
+  } catch (e) {
+    console.error("create order failed", milestoneId, e);
+    throw new Error("PayPal couldn't start the payment. Nothing was charged; please try again.");
+  }
+  redirect(approveUrl); // outside the try: redirect() works by throwing
 }
 
 // JS SDK buttons (PayPal, Pay Later, Venmo): same server-side order and authorization, approved in a popup.
