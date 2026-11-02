@@ -84,6 +84,27 @@ Screenshots of the app running on the PayPal sandbox.
 </tr>
 </table>
 
+### Protecting both sides
+
+<table>
+<tr>
+<td width="50%"><b>11. Did you forget anything?</b><br>Before paying, the AI lists what clients usually assume is included. Ticked items join the checklist; the rest is written down as not included.<br><img src="docs/images/expectation-finder.jpg" alt="Expectation finder suggestions with checkboxes"></td>
+<td width="50%"><b>12. Design approved first</b><br>A $50 design milestone with 2 change rounds: the client approved the mockup, and the build is checked against it.<br><img src="docs/images/design-approved-first.jpg" alt="Approved design mockup milestone"></td>
+</tr>
+<tr>
+<td><b>13. Verified, journey included</b><br>Every item passed, including the quality baseline and a customer journey the agent completed in the browser. The handover was confirmed by the client.<br><img src="docs/images/journey-handover-verified.jpg" alt="Verified checklist with Journey and Handover items"></td>
+<td><b>14. Not included, and the inbox check</b><br>What both sides agreed is not part of the job, and the client confirming the AI's coded test message reached their inbox.<br><img src="docs/images/not-included-and-inbox.jpg" alt="Not included list and inbox confirmation"></td>
+</tr>
+<tr>
+<td><b>15. Warranty: 75% now, 25% after a week</b><br>Real PayPal sandbox movements: $187.50 paid at approval, $62.50 held as the warranty and paid when the site kept working.<br><img src="docs/images/warranty-and-payments.jpg" alt="Warranty terms and the payments list"></td>
+<td><b>16. Included, or new work?</b><br>"Online ordering" was judged new work, with a suggested $150 milestone the freelancer can accept or decline.<br><img src="docs/images/included-or-new-work.jpg" alt="Scope question answered as new work"></td>
+</tr>
+<tr>
+<td><b>17. Posting a job</b><br>Change rounds and the warranty are agreed before anything starts.<br><img src="docs/images/post-job-warranty.jpg" alt="Post a job form with change rounds and warranty"></td>
+<td><b>18. Home page</b><br>The new feature tiles, each a small live animation.<br><img src="docs/images/landing-new-features.jpg" alt="Home page feature tiles"></td>
+</tr>
+</table>
+
 ---
 
 ## User journey

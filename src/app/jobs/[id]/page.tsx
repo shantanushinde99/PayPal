@@ -57,7 +57,9 @@ function Checklist({ m }: { m: M }) {
     <ul className="space-y-2">
       {m.checklist.map((c) => {
         const v = m.verdict.find((x) => x.checklistItemId === c.id);
-        const meta = v ? VERDICT[v.status as keyof typeof VERDICT] ?? VERDICT.unsure : null;
+        // Handover items aren't judged by the AI: their tick is the client's own confirmation.
+        const status = c.kind === "handover" ? (c.confirmed === null ? null : c.confirmed ? "pass" : "fail") : v?.status;
+        const meta = status ? VERDICT[status as keyof typeof VERDICT] ?? VERDICT.unsure : null;
         return (
           <li key={c.id} className="flex gap-3 rounded-lg bg-canvas px-3 py-2.5">
             {meta
