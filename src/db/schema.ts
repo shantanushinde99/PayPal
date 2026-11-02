@@ -55,7 +55,8 @@ export const milestones = pgTable("milestones", {
   failReason: text(),
   releaseAt: timestamp({ withTimezone: true }), // end of the review window after an AI pass
   capturedMinor: integer(),
-  changeRequests: integer().notNull().default(0), // design rounds the client has used // what was actually paid; less than amountMinor after a split decision
+  changeRequests: integer().notNull().default(0), // design rounds the client has used
+  excluded: text().array().notNull().default([]), // things both sides agreed are NOT part of this milestone // what was actually paid; less than amountMinor after a split decision
   paypalDisputeId: text(), // a buyer dispute opened on PayPal itself (webhook)
   paypalDisputeStatus: text(),
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),

@@ -82,6 +82,9 @@ export function linkOutcome(status: number, error?: string): { status: number; o
 
 const TEXT_BUDGET = 12_000;
 
+// Leftover template text a client never wants to see on a delivered site.
+export const PLACEHOLDER = /lorem ipsum|dolor sit amet|your (company|business) name|your text here|sample text|insert (text|content) here/i;
+
 export function summarizeReport(r: SiteReport): string {
   const path = (u: string) => { const x = new URL(u); return x.pathname + x.search; };
   const q = (v: string) => JSON.stringify(v); // site-written text is quoted so it can't pose as audit output
@@ -94,6 +97,9 @@ export function summarizeReport(r: SiteReport): string {
       p.forms.map((f, i) => ` #${i}: fields ${f.fields.map(q).join(", ")}, submit ${q(f.submit)}`).join("")} | broken images: ${p.brokenImages} | console errors: ${p.consoleErrors.length} | ${
       p.phoneOverflow ? "does NOT fit a phone screen (sideways scroll)" : "fits a phone screen"}`);
   }
+  const placeholders = r.pages.filter((p) => !p.offsite && PLACEHOLDER.test(p.text));
+  lines.push(`Secure address: ${r.pages.every((p) => p.offsite || p.url.startsWith("https://")) ? "every page uses https://" : `NOT secure (http://) on ${r.pages.filter((p) => !p.offsite && !p.url.startsWith("https://")).map((p) => path(p.url)).join(", ")}`}.`);
+  lines.push(`Placeholder text: ${placeholders.length ? `FOUND on ${placeholders.map((p) => `${path(p.url)} (${JSON.stringify(p.text.match(PLACEHOLDER)![0])})`).join(", ")}` : "none found"}.`);
   const broken = r.links.filter((l) => !l.ok);
   lines.push(`Links checked: ${r.links.length}. Broken: ${broken.length}.`);
   for (const l of broken) lines.push(`- ${l.url} (${l.status || "no response"}) linked from ${path(l.foundOn)} as ${q(l.text)}`);

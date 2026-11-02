@@ -23,11 +23,11 @@ const kpi = (text: string, id: string, aggregation: "sum" | "avg") =>
 
 // Labels per side: a client spends and holds money, a freelancer earns it.
 const COPY = {
-  client: { held: "Money on hold", paid: "Paid to freelancers", done: "Milestones verified & paid", speed: "Avg days to payment",
+  client: { held: "On hold", paid: "Paid out", done: "Completed", speed: "Days to pay",
     flow: "Paid per month", items: "Checklist results by requirement", other: "Freelancer" },
-  freelancer: { held: "Waiting to be released", paid: "Total earned", done: "Milestones completed", speed: "Avg days to get paid",
+  freelancer: { held: "Waiting", paid: "Earned", done: "Completed", speed: "Days to get paid",
     flow: "Earnings per month", items: "How your work scored", other: "Client" },
-  platform: { held: "Money on hold (platform)", paid: "Paid to freelancers", done: "Milestones completed", speed: "Avg days to payment",
+  platform: { held: "On hold", paid: "Paid out", done: "Completed", speed: "Days to pay",
     flow: "Money movements per month", items: "Checklist results by requirement", other: "Freelancer" },
 } as const;
 

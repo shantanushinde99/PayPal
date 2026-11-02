@@ -9,7 +9,7 @@ import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
+import { applyExpectationsAction, findExpectationsAction, saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
@@ -20,6 +20,7 @@ import { acceptDecisionAction, askJudgeAction, openDisputeAction, rejectDecision
 import { shareMinor } from "@/lib/money";
 import { DesignProofForm, PhotoProofForm, PhotoPicker } from "./photo-proof-form";
 import { ProofLinkForm } from "./proof-link-form";
+import { ExpectationFinder } from "./expectation-finder";
 import { PayPalButtons } from "./paypal-buttons";
 import { env } from "@/lib/env";
 
@@ -185,11 +186,11 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         {isClient && m.state === "draft" ? (
           <form action={saveMilestone.bind(null, m.id)} className="space-y-3 rounded-lg border border-line p-4">
             <p className="text-sm font-semibold">Review before funding: the AI checks against exactly this list.</p>
-            <div className="grid gap-3 sm:grid-cols-[1fr_8rem_10rem]">
+            <div className="grid gap-3 sm:grid-cols-[1fr_8rem_14rem]">
               <label className="space-y-1 text-sm font-medium">Title<input name="title" defaultValue={m.title} className={field} /></label>
               <label className="space-y-1 text-sm font-medium">Amount<input name="amount" type="number" step="0.01" min="0.01" defaultValue={toPayPalValue(m.amountMinor, job.currency)} className={field} /></label>
               <label className="space-y-1 text-sm font-medium">Proof type
-                <select name="proofType" defaultValue={m.proofType} className={field}><option value="website">Website or GitHub repo</option><option value="photo">Photos</option><option value="design">Design mockup (you approve it)</option></select>
+                <select name="proofType" defaultValue={m.proofType} className={field}><option value="website">Website or GitHub repo</option><option value="photo">Before/after photos</option><option value="design">Design mockup</option></select>
               </label>
             </div>
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
@@ -212,6 +213,15 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
           </form>
         ) : (
           <Checklist m={m} />
+        )}
+        {isClient && m.state === "draft" && (
+          <ExpectationFinder find={findExpectationsAction.bind(null, m.id)} apply={applyExpectationsAction.bind(null, m.id)} />
+        )}
+        {m.excluded.length > 0 && (
+          <div className="rounded-lg border border-line p-3 text-sm">
+            <p className="font-semibold">Not included (agreed)</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 text-ink-soft">{m.excluded.map((x) => <li key={x}>{x}</li>)}</ul>
+          </div>
         )}
 
         {m.state !== "draft" && m.referenceImage && (
@@ -261,19 +271,19 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
         )}
 
         {isClient && m.state === "passed" && (
-          <div className="flex flex-wrap items-start gap-3 rounded-lg border border-emerald-200 p-4">
+          <div className="space-y-3 rounded-lg border border-emerald-200 p-4">
             <form action={approveRelease.bind(null, m.id)}>
               <SubmitButton className={btn.primary} pending="Paying…"><CheckCircle2 aria-hidden className="size-4" /> {m.proofType === "design" ? "Approve design & pay" : "Approve & pay now"}</SubmitButton>
             </form>
             {m.proofType === "design" && (
-              <details className="min-w-0 flex-1" open={m.changeRequests < job.revisionRounds}>
+              <details open={m.changeRequests < job.revisionRounds}>
                 <summary className={`${btn.secondary} list-none`}><Palette aria-hidden className="size-4" /> Ask for changes</summary>
                 <div className="mt-3"><ChangeRequestForm action={requestDesignChanges.bind(null, m.id)} left={job.revisionRounds - m.changeRequests} total={job.revisionRounds} /></div>
               </details>
             )}
-            <details className="min-w-0 flex-1">
+            <details>
               <summary className={`${btn.secondary} list-none`}><Scale aria-hidden className="size-4" /> Dispute the result</summary>
-              <div className="mt-3"><StatementForm action={openDisputeAction.bind(null, m.id)} items={m.checklist} label={m.proofType === "design" ? "Why the design misses that item" : "What is not done, despite the AI's pass?"} cta="Open dispute" placeholder="The contact form submits but no email arrives…" /></div>
+              <div className="mt-3"><StatementForm action={openDisputeAction.bind(null, m.id)} items={m.checklist} label={m.proofType === "design" ? "Why the design misses that item" : "What is not done, despite the AI's pass?"} cta="Open dispute" placeholder={m.proofType === "design" ? "The mockup has no menu section, which the checklist asks for…" : "The contact form submits but no email arrives…"} /></div>
             </details>
           </div>
         )}

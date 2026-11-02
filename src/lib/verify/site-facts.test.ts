@@ -71,6 +71,15 @@ describe("summarizeReport", () => {
     expect(s).toContain("https://b.test/team (404)");
     expect(s).toContain("hello@b.test");
     expect(s).toMatch(/UNTRUSTED/);
+    expect(s).toContain("every page uses https://");
+    expect(s).toContain("Placeholder text: none found");
+  });
+  it("measures insecure pages and leftover template text", () => {
+    const page = { status: 200, offsite: false, title: "", headings: [], links: [], forms: [], brokenImages: 0, consoleErrors: [], phoneOverflow: false };
+    const s = summarizeReport({ start: "http://b.test/", truncated: false, links: [], contacts: { emails: [], phones: [], whatsapp: [], social: [] },
+      pages: [{ ...page, url: "http://b.test/", text: "Welcome" }, { ...page, url: "http://b.test/about", text: "About us. Lorem ipsum dolor." }] });
+    expect(s).toContain("NOT secure (http://) on /, /about");
+    expect(s).toContain('FOUND on /about ("Lorem ipsum")');
   });
 });
 

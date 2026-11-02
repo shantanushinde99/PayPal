@@ -15,6 +15,7 @@ import { parsePhoto } from "@/lib/photo-input";
 import { checkProofLink } from "@/lib/proof-link";
 import { withDesignItem } from "@/lib/design-reference";
 import { requestChanges, submitDesign } from "@/lib/design-review";
+import { applyExpectations, suggestFor, withBaseline, type Expectation } from "@/lib/expectations";
 import { lintChecklist } from "@/lib/lint-checklist";
 import { startFunding, completeFunding, cancel, release } from "@/lib/payments";
 import { runVerification } from "@/lib/verify/run";
@@ -37,7 +38,8 @@ export async function createJob(formData: FormData) {
   const milestonesPlan = plan.milestones.map((m, i) => {
     const proofType = asProofType(m.proofType);
     const designBefore = plan.milestones.slice(0, i).some((x) => x.proofType === "design");
-    return { ...m, proofType, checklist: proofType === "website" && designBefore ? withDesignItem(m.checklist) : m.checklist };
+    const checklist = proofType === "website" && designBefore ? withDesignItem(m.checklist) : m.checklist;
+    return { ...m, proofType, checklist: proofType === "website" && m.liveSite ? withBaseline(checklist) : checklist };
   });
   const notes = await Promise.all(milestonesPlan.map((m) => (m.proofType === "design" ? m.checklist.map(() => null) : lintChecklist(m.proofType, m.checklist))));
   const jobId = await db.transaction(async (tx) => {
@@ -73,6 +75,7 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
   await db.transaction(async (tx) => {
     await tx.update(milestones).set({
       title: String(formData.get("title")), proofType, amountMinor: toMinor(amount, row.j.currency), referenceImage: reference || null,
+      excluded: row.m.excluded.filter((x) => !finalRequirements.some((r) => r.toLowerCase() === x.toLowerCase())), // moved back into scope
     }).where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
     await tx.delete(checklistItems).where(eq(checklistItems.milestoneId, milestoneId));
     await tx.insert(checklistItems).values(finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement, lintNote: notes[position] })));
@@ -181,6 +184,29 @@ export async function declineInvitation(jobId: string, formData: FormData) {
   const user = await requireUser();
   await declineJob(jobId, user, String(formData.get("note") ?? ""));
   revalidatePath(`/jobs/${jobId}`);
+}
+
+// Expectation finder: what clients usually expect for this job that isn't written down yet.
+export async function findExpectationsAction(milestoneId: string): Promise<{ items?: Expectation[]; error?: string }> {
+  const user = await requireUser();
+  try {
+    return { items: await suggestFor(milestoneId, user.id) };
+  } catch (e) {
+    console.error("expectation finder failed", milestoneId, e);
+    return { error: e instanceof Error && /Not allowed|fixed once/.test(e.message) ? e.message : "The AI couldn't look for missing items right now. Please try again." };
+  }
+}
+
+export async function applyExpectationsAction(milestoneId: string, add: string[], excluded: string[]): Promise<{ error?: string }> {
+  const user = await requireUser();
+  try {
+    await applyExpectations(milestoneId, user.id, add, excluded);
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
+  const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
+  if (m) revalidatePath(`/jobs/${m.jobId}`);
+  return {};
 }
 
 // Client wants changes to a submitted design (within the agreed rounds).
