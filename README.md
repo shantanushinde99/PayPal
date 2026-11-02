@@ -8,7 +8,7 @@
 
 [Live app](https://verifund-ckg3gxbeg0a7bzbp.indiasouthcentral-01.azurewebsites.net) · [Demo sites](https://shantanushinde99.github.io/verifund-demo-sites/) · Built for the [PayPal AI Hackathon](https://paypalaihackathon.devpost.com/)
 
-`PayPal Orders · Authorizations · Partial Captures · Webhooks · Disputes · JS SDK (PayPal, Pay Later, Venmo)` · `Google Gemini` · `KERNEL cloud browsers` · `AG Studio`
+`PayPal Orders · Authorizations · Partial Captures · Webhooks · Disputes · JS SDK (PayPal, Pay Later, Venmo)` · `Google Gemini` · `Mistral` · `KERNEL cloud browsers` · `AG Studio`
 
 </div>
 
@@ -161,6 +161,7 @@ flowchart LR
     DB[("Supabase Postgres<br/>RLS on every table")]
     PP["PayPal REST APIs<br/>Orders · Payments · Webhooks · Disputes"]
     GEM["Google Gemini<br/>3.1 / 3.5 Flash Lite"]
+    MIS["Mistral<br/>ministral-14b / 8b"]
     KER["KERNEL<br/>cloud Chromium + replays"]
 
     UI --> ACT
@@ -171,7 +172,9 @@ flowchart LR
     ACT --> VER
     VER --> KER
     VER --> GEM
-    JUDGE --> GEM
+    JUDGE --> MIS
+    ACT -- plan, checklists, scope --> MIS
+    MIS -. busy .-> GEM
     AIR --> GEM
     SWEEP --> PAY
     SWEEP --> JUDGE
@@ -276,7 +279,8 @@ sequenceDiagram
 | Tool | Used for |
 |---|---|
 | **PayPal** | Orders (authorize), Authorizations (capture, partial capture, void), JS SDK buttons (PayPal, Pay Later, Venmo), Webhooks with signature verification, Disputes API evidence, Log in with PayPal |
-| **Google Gemini** | Job planning, checklist lint, agentic website verification with tool calls, photo comparison, AI Judge, Insights chat (two Flash Lite models with automatic fallback) |
+| **Google Gemini** | The agentic website checker (tool calls + screenshots + reference design), photo comparison, the GitHub repo checker and the Insights chat (two Flash Lite models with automatic fallback); backup for every Mistral task |
+| **Mistral** | The text tasks: job planning, checklist checks, "did you forget anything?", "included or new work?", the AI Judge and profile import (`ministral-14b`, then `ministral-8b`), so Gemini's quota is kept for the browsing agent |
 | **KERNEL** | Cloud Chromium for every website check (via Playwright over CDP), session recordings (MP4 replays) |
 | **AG Studio (AG Grid)** | The Insights analytics dashboard and its AI agent, wired to Gemini through a custom LLM adapter and our own server route |
 
@@ -359,7 +363,7 @@ This takes about 20 minutes, most of it creating the free accounts. Everything r
 | Git | any recent | `git --version` |
 | Google Chrome | any recent (used by the local test scripts) | |
 
-Free accounts: a **PayPal Developer** account, a **Google AI Studio** account (Gemini) and a **KERNEL** account.
+Free accounts: a **PayPal Developer** account, a **Google AI Studio** account (Gemini) and a **KERNEL** account. A **Mistral** account is optional.
 
 ### 2. Get the code
 
@@ -383,12 +387,17 @@ cp .env.example .env
 1. Open [aistudio.google.com](https://aistudio.google.com), sign in, and click **Get API key → Create API key**.
 2. Put it in `.env` as `GEMINI_API_KEY`. Keep the two model names from `.env.example` (the app switches to the second model when the first is busy or out of quota).
 
-### 5. Get a KERNEL API key
+### 5. Get a Mistral API key (optional)
+
+1. Sign up at [console.mistral.ai](https://console.mistral.ai), choose the free **Experiment** plan, and create an API key under **API Keys**.
+2. Put it in `.env` as `MISTRAL_API_KEY`. Planning, checklist checks, the AI Judge and the other text tasks then run on Mistral (`ministral-14b`, then `ministral-8b`), and Gemini is kept for the website agent. Without it, everything runs on Gemini.
+
+### 6. Get a KERNEL API key
 
 1. Sign up at [onkernel.com](https://onkernel.com) and create an API key in the dashboard.
 2. Put it in `.env` as `KERNEL_API_KEY`. Website checks, previews and recordings run in KERNEL's cloud browsers.
 
-### 6. Finish `.env`
+### 7. Finish `.env`
 
 ```bash
 openssl rand -base64 32     # paste the output as AUTH_SECRET
@@ -402,7 +411,7 @@ Optional:
 - `AG_STUDIO_LICENSE_KEY`: removes the AG Studio trial watermark on Insights.
 - `REVIEW_WINDOW_MINUTES`: how long the client has to approve or dispute (default 1440 = 24 h, max 2880).
 
-### 7. Start the database (terminal 1)
+### 8. Start the database (terminal 1)
 
 ```bash
 npm run db
@@ -410,14 +419,14 @@ npm run db
 
 This downloads and starts a real PostgreSQL 17 on port **5433**, with a `pod` database for the app and a `pod_test` database for tests. Data is kept in `.data/pg`. **Leave this terminal open**: the app needs it running.
 
-### 8. Create the tables (terminal 2)
+### 9. Create the tables (terminal 2)
 
 ```bash
 npm run db:push          # the app database
 npm run db:push:test     # the test database (only needed for npm test)
 ```
 
-### 9. Start the app
+### 10. Start the app
 
 ```bash
 npm run dev
@@ -425,15 +434,15 @@ npm run dev
 
 Open **http://lvh.me:3000**. Click **Try the live demo** (if you set the demo variables) or **Start with PayPal** and log in with a sandbox account. When you fund a milestone, approve the payment with the sandbox **buyer** email and password.
 
-### 10. Run the tests
+### 11. Run the tests
 
 ```bash
-npm test                 # 200+ tests; needs the database from step 7
+npm test                 # 200+ tests; needs the database from step 8
 npx tsc --noEmit         # type check
 npm run lint
 ```
 
-### 11. PayPal webhooks (optional locally, needed when hosted)
+### 12. PayPal webhooks (optional locally, needed when hosted)
 
 Webhooks confirm captures and pick up buyer disputes. PayPal can't reach `lvh.me`, so register them for a public URL (your hosted app, or a tunnel such as ngrok):
 
@@ -443,14 +452,14 @@ npx tsx --env-file=.env scripts/register-webhook.mts https://your-public-url
 
 Put the printed ID in `.env` (and your host's settings) as `PAYPAL_WEBHOOK_ID`.
 
-### 12. Deploy
+### 13. Deploy
 
 Any Node 24 host works; the live demo runs on **Azure App Service** (Linux, Node 24) with **Supabase Postgres**, deployed by the GitHub Actions workflow in `.github/workflows/main_verifund.yml`.
 
 1. Create a Postgres database and set its connection string as `DATABASE_URL` (for Supabase, use the pooler URL).
 2. Create the tables there: `DATABASE_URL=<your url> npx drizzle-kit push`. On an existing database, run the files in `scripts/migrations/` in date order instead (they only add columns and tables, and are safe to re-run).
 3. Set every variable from `.env` in the host's settings, with `APP_URL` and `AUTH_URL` set to your public URL.
-4. Add `<your URL>/api/auth/callback/paypal` as a return URL in the PayPal app, and register the webhook (step 11).
+4. Add `<your URL>/api/auth/callback/paypal` as a return URL in the PayPal app, and register the webhook (step 12).
 5. Build with `npm ci && npm run build`, start with `npm start` (or `node node_modules/next/dist/bin/next start`).
 
 ### Troubleshooting
@@ -458,7 +467,7 @@ Any Node 24 host works; the live demo runs on **Azure App Service** (Linux, Node
 | Problem | Fix |
 |---|---|
 | `ECONNREFUSED ... 5433` | The database isn't running: start `npm run db` in its own terminal. |
-| "The AI is busy right now" | Gemini's free quota or a busy model. Wait a minute and try again; the app already switches between the two models. |
+| "The AI is busy right now" | Every model was busy or out of quota at once. Wait a minute and try again; the app already switches between the Mistral and Gemini models. |
 | PayPal login says the redirect URL doesn't match | Add `http://lvh.me:3000/api/auth/callback/paypal` to the app's Log in with PayPal settings, and open the app at `lvh.me`, not `localhost`. |
 | "Try the live demo" is missing | Set `DEMO_PAYOUT_EMAIL` (and the buyer variables) and restart `npm run dev`. |
 | A website check fails before checking anything | Check `KERNEL_API_KEY`, and that the site is public and loads in a normal browser. |

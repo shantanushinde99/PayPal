@@ -15,6 +15,7 @@ const schema = z
     APP_URL: z.url(),
     // direct: capture pays the freelancer (works everywhere). payouts: capture to platform, then Payouts API (needs Payouts eligibility).
     PAYOUT_MODE: z.enum(["direct", "payouts"]).default("direct"),
+    MISTRAL_API_KEY: z.string().optional(), // text-in, JSON-out tasks go to Mistral first; unset = Gemini only
     GITHUB_READ_TOKEN: z.string().optional(), // read-only token for checking public repos: 5,000 GitHub API calls/hour instead of 60
     AG_STUDIO_LICENSE_KEY: z.string().optional(), // without it AG Studio runs as a trial (watermark off localhost)
     PAYPAL_WEBHOOK_ID: z.string().optional(), // from scripts/register-webhook.mts; unset = webhooks ignored
