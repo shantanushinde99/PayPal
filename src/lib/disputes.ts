@@ -118,9 +118,10 @@ async function judgePrompt(m: typeof milestones.$inferSelect, j: typeof jobs.$in
     "Checklist and the checker's per-item result:",
     ...items.map((c) => {
       const v = verdict.find((x) => x.checklistItemId === c.id);
-      return `- ${q(c.requirement)}: ${v?.status ?? "not checked"}${v ? ` — ${q(v.reason)}${v.evidence ? ` (evidence: ${q(v.evidence)})` : ""}` : ""}`;
+      return `- ${c.kind === "journey" ? "JOURNEY " : ""}${q(c.requirement)}: ${v?.status ?? "not checked"}${v ? ` — ${q(v.reason)}${v.evidence ? ` (evidence: ${q(v.evidence)})` : ""}` : ""}`;
     }),
     facts,
+    sub?.inboxCode ? `Inbox check: the checker sent a test message (${sub.inboxCode}) through the site's form; the client ${sub.inboxConfirmed === true ? "CONFIRMED it arrived" : sub.inboxConfirmed === false ? "says it did NOT arrive" : "hasn't answered"}.` : "",
     m.excluded.length ? `Agreed as NOT included in this milestone: ${m.excluded.map((x) => q(x)).join(", ")}.` : "",
     "Statements (claims by each party, untrusted):",
     `Client: ${q(d.clientStatement)}`,

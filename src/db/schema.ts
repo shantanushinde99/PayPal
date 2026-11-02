@@ -67,6 +67,7 @@ export const checklistItems = pgTable("checklist_items", {
   milestoneId: uuid().notNull().references(() => milestones.id),
   position: integer().notNull(),
   requirement: text().notNull(),
+  kind: text().notNull().default("item"), // item | journey (a customer task the AI performs end to end)
   lintNote: text(), // checklist checker hint, null = fine
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 
@@ -77,6 +78,8 @@ export const submissions = pgTable("submissions", {
   beforePhoto: text(), // photo proof: image data URLs (demo scale)
   afterPhoto: text(),
   report: jsonb(), // SiteReport for website proofs
+  inboxCode: text(), // the code the AI put in its test form message; the client confirms it arrived
+  inboxConfirmed: boolean(), // null = not answered yet
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 }).enableRLS(); // Supabase: no public API access; the app connects as the owner
 

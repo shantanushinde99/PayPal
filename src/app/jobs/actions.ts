@@ -15,6 +15,7 @@ import { parsePhoto } from "@/lib/photo-input";
 import { checkProofLink } from "@/lib/proof-link";
 import { withDesignItem } from "@/lib/design-reference";
 import { requestChanges, submitDesign } from "@/lib/design-review";
+import { confirmInbox } from "@/lib/inbox-check";
 import { applyExpectations, suggestFor, withBaseline, type Expectation } from "@/lib/expectations";
 import { lintChecklist } from "@/lib/lint-checklist";
 import { startFunding, completeFunding, cancel, release } from "@/lib/payments";
@@ -62,15 +63,17 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
     .innerJoin(jobs, eq(jobs.id, milestones.jobId)).where(eq(milestones.id, milestoneId));
   if (!row || row.j.clientId !== user.id || row.m.state !== "draft") throw new Error("Not editable");
 
-  const requirements = String(formData.get("checklist")).split("\n").map((s) => s.trim()).filter(Boolean);
+  const lines = (k: string) => String(formData.get(k) ?? "").split("\n").map((s) => s.trim()).filter(Boolean);
+  const requirements = lines("checklist");
   const amount = Number(formData.get("amount"));
   if (!requirements.length || !(amount > 0)) throw new Error("Need at least one requirement and an amount");
 
   const proofType = asProofType(formData.get("proofType"));
+  const journeys = proofType === "website" ? lines("journeys").filter((j) => !requirements.includes(j)).slice(0, 5) : [];
   const reference = proofType === "website" ? String(formData.get("referenceImage") ?? "") : "";
   if (reference) parsePhoto(reference); // throws on non-images / oversized
   const finalRequirements = reference ? withDesignItem(requirements) : requirements;
-  const notes = proofType === "design" ? finalRequirements.map(() => null) : await lintChecklist(proofType, finalRequirements);
+  const notes = proofType === "design" ? finalRequirements.map(() => null) : await lintChecklist(proofType, [...finalRequirements, ...journeys]);
 
   await db.transaction(async (tx) => {
     await tx.update(milestones).set({
@@ -78,7 +81,10 @@ export async function saveMilestone(milestoneId: string, formData: FormData) {
       excluded: row.m.excluded.filter((x) => !finalRequirements.some((r) => r.toLowerCase() === x.toLowerCase())), // moved back into scope
     }).where(and(eq(milestones.id, milestoneId), eq(milestones.state, "draft")));
     await tx.delete(checklistItems).where(eq(checklistItems.milestoneId, milestoneId));
-    await tx.insert(checklistItems).values(finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement, lintNote: notes[position] })));
+    await tx.insert(checklistItems).values([
+      ...finalRequirements.map((requirement, position) => ({ milestoneId, position, requirement, lintNote: notes[position] })),
+      ...journeys.map((requirement, i) => ({ milestoneId, position: finalRequirements.length + i, requirement, kind: "journey", lintNote: notes[finalRequirements.length + i] })),
+    ]);
     await resetAcceptance(row.j.id, tx); // same transaction: no window to fund the old version
   });
   revalidatePath(`/jobs/${row.j.id}`);
@@ -207,6 +213,14 @@ export async function applyExpectationsAction(milestoneId: string, add: string[]
   const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
   if (m) revalidatePath(`/jobs/${m.jobId}`);
   return {};
+}
+
+// Client says whether the AI's test message reached their inbox.
+export async function confirmInboxAction(milestoneId: string, received: boolean) {
+  const user = await requireUser();
+  await confirmInbox(milestoneId, user, received);
+  const [m] = await db.select({ jobId: milestones.jobId }).from(milestones).where(eq(milestones.id, milestoneId));
+  if (m) revalidatePath(`/jobs/${m.jobId}`);
 }
 
 // Client wants changes to a submitted design (within the agreed rounds).

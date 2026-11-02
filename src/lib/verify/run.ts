@@ -13,6 +13,7 @@ import { reviewWindowMinutes } from "@/lib/review-window";
 import { friendlyError } from "@/lib/friendly-error";
 import { isSampleSite, ownershipCode } from "@/lib/ownership";
 import { approvedDesign } from "@/lib/design-review";
+import { inboxCode } from "@/lib/inbox-check";
 
 const logError = (milestoneId: string, message: string) => db.insert(events).values({ milestoneId, kind: "error", message });
 
@@ -61,14 +62,17 @@ async function verify(milestoneId: string, submissionId: string): Promise<false 
       // Ownership is proven on real accounts; demo workspaces (sandbox money) and Verifund's sample sites skip it.
       const skip = isSampleSite(url) ? "Verifund sample site: ownership check skipped." : j.clientDemo ? "Demo workspace: ownership check skipped. On a real account you'd prove this is yours." : null;
       const ownerCode = skip ? undefined : ownershipCode(j.freelancerId ?? "none");
+      const testCode = inboxCode(submissionId);
       const r = isCodeHostUrl(url)
         ? await checkRepo({ url, checklist, ownerCode, log, token: env.GITHUB_READ_TOKEN })
         : await checkWebsite({
-          url, checklist, reference, ownerCode, skipNote: skip ?? undefined, log,
+          url, checklist, reference, ownerCode, testCode, skipNote: skip ?? undefined, log,
           onReplay: async (mp4) => { await db.insert(replays).values({ submissionId, mp4 }).onConflictDoNothing(); },
         });
       verdict = r.verdict;
-      await db.update(submissions).set({ report: r.report }).where(eq(submissions.id, submissionId));
+      const sent = "formSubmitted" in r && r.formSubmitted; // a test message went out: the client can confirm it arrived
+      await db.update(submissions).set({ report: r.report, inboxCode: sent ? testCode : null }).where(eq(submissions.id, submissionId));
+      if (sent) await log(`A test message with code ${testCode} was sent through the site's form. The client can confirm it reached their inbox.`);
     }
   } catch (e) {
     console.error("check failed", milestoneId, e);

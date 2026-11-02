@@ -9,7 +9,7 @@ import { formatMoney, toPayPalValue } from "@/lib/money";
 import { Header } from "@/components/header";
 import { Card, StatusBadge, btn, field } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
-import { applyExpectationsAction, findExpectationsAction, saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
+import { applyExpectationsAction, confirmInboxAction, findExpectationsAction, saveMilestone, fundMilestone, createFundingOrder, approveFunding, cancelMilestone, submitProof, acceptInvitation, declineInvitation, approveRelease, requestDesignChanges } from "../actions";
 import { loadJobForUser } from "../load";
 import { loadPaymentsForUser } from "@/lib/payment-history";
 import { PaymentsList } from "@/components/payments-list";
@@ -57,7 +57,7 @@ function Checklist({ m }: { m: M }) {
               ? <meta.Icon aria-label={meta.label} className={`mt-0.5 size-5 shrink-0 ${meta.cls}`} />
               : <span aria-hidden className="mt-1.5 size-2 shrink-0 rounded-full bg-slate-300" />}
             <div className="min-w-0">
-              <p className="font-medium">{c.requirement}</p>
+              <p className="font-medium">{c.kind === "journey" && <span className="mr-2 rounded bg-violet-100 px-1.5 py-0.5 align-middle text-xs font-semibold text-violet-900">Journey</span>}{c.requirement}</p>
               {v?.reason && <p className="text-sm text-ink-soft">{v.reason}</p>}
             </div>
           </li>
@@ -80,7 +80,7 @@ function StateBanner({ m, currency, freelancer, blocked, rounds }: { m: M; curre
     case "funded": return <Banner tone="bg-sky-50 text-sky-900" icon={<Lock aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{amount} is held by PayPal.</p><p>{blocked ? "Starts once the previous milestone is paid." : "It is released automatically when the AI verifies every checklist item."}</p></Banner>;
     case "verifying": return <Banner tone="bg-violet-50 text-violet-900" icon={<Loader2 aria-hidden className="size-5 shrink-0 animate-spin" />}><p className="font-semibold">The AI agent is checking the proof…</p><p>Live steps appear in the activity log below.</p></Banner>;
     case "failed": {
-      const workMissing = !m.failReason || /checklist item/.test(m.failReason); // otherwise it was our side (AI busy, browser down)
+      const workMissing = !m.failReason || /checklist item|test message/.test(m.failReason); // otherwise it was our side (AI busy, browser down)
       return <Banner tone="bg-amber-50 text-amber-900" icon={<AlertTriangle aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{m.failReason ?? "Some items aren't met yet."}</p><p>{workMissing ? "The money stays on hold. Fix the items marked below and resubmit." : "Nothing for you to fix: just resubmit the same proof."}</p></Banner>;
     }
     case "passed": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<Hourglass aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">All items verified. {amount} releases automatically{m.releaseAt ? <> on <LocalTime date={m.releaseAt} /></> : " shortly"}.</p><p>The client can approve now or dispute until then. The money stays on hold meanwhile.</p></Banner>;
@@ -88,6 +88,27 @@ function StateBanner({ m, currency, freelancer, blocked, rounds }: { m: M; curre
     case "paid_out": return <Banner tone="bg-emerald-50 text-emerald-900" icon={<CheckCircle2 aria-hidden className="size-5 shrink-0" />}><p className="font-semibold">{formatMoney(m.capturedMinor ?? m.amountMinor, currency)} paid to {freelancer}.{m.capturedMinor !== null && m.capturedMinor < m.amountMinor && <> {formatMoney(m.amountMinor - m.capturedMinor, currency)} returned to the client.</>}</p></Banner>;
     default: return null;
   }
+}
+
+// The AI's test message carried a code; only the client can see whether it reached their inbox.
+function InboxCheck({ code, confirmed, ask, yes, no }: { code: string; confirmed: boolean | null; ask: boolean; yes: () => Promise<void>; no: () => Promise<void> }) {
+  if (confirmed !== null || !ask) {
+    const text = confirmed === true ? `The client confirmed the test message ${code} reached their inbox.`
+      : confirmed === false ? `The client said the test message ${code} never arrived.`
+      : `A test message with code ${code} was sent through the contact form. Waiting for the client to confirm it arrived.`;
+    return <Banner tone={confirmed === false ? "bg-amber-50 text-amber-900" : "bg-slate-50 text-slate-800"} icon={<MailOpen aria-hidden className="size-5 shrink-0" />}><p>{text}</p></Banner>;
+  }
+  return (
+    <div className="space-y-3 rounded-lg border border-sky-200 bg-sky-50/60 p-4">
+      <p className="flex items-center gap-2 font-semibold text-sky-950"><MailOpen aria-hidden className="size-5" /> Did the test message reach your inbox?</p>
+      <p className="text-sm text-sky-900">The AI sent a message through your contact form, saying <b>&ldquo;Verifund test - please ignore (code {code})&rdquo;</b>. A form can say &ldquo;thanks&rdquo; and still send nowhere, so check the inbox it should reach (and the spam folder).</p>
+      <div className="flex flex-wrap gap-2">
+        <form action={yes}><SubmitButton className={btn.primary} pending="Saving…"><CheckCircle2 aria-hidden className="size-4" /> Yes, it arrived</SubmitButton></form>
+        <form action={no}><SubmitButton className={btn.secondary} pending="Saving…"><XCircle aria-hidden className="size-4" /> No, nothing arrived</SubmitButton></form>
+      </div>
+      <p className="text-xs text-sky-900">&ldquo;No&rdquo; sends the work back to the freelancer to fix the form (they can dispute it). If you don&apos;t answer, payment releases as usual.</p>
+    </div>
+  );
 }
 
 function Proof({ m }: { m: M }) {
@@ -194,8 +215,15 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
               </label>
             </div>
             <label className="block space-y-1 text-sm font-medium">Checklist (one requirement per line)
-              <textarea name="checklist" rows={Math.max(3, m.checklist.length + 1)} className={field} defaultValue={m.checklist.map((c) => c.requirement).join("\n")} />
+              <textarea name="checklist" rows={Math.max(3, m.checklist.length + 1)} className={field} defaultValue={m.checklist.filter((c) => c.kind !== "journey").map((c) => c.requirement).join("\n")} />
             </label>
+            {m.proofType === "website" && (
+              <label className="block space-y-1 text-sm font-medium">Customer journeys (optional, one per line)
+                <textarea name="journeys" rows={2} className={field} defaultValue={m.checklist.filter((c) => c.kind === "journey").map((c) => c.requirement).join("\n")}
+                  placeholder="A customer can book a table for 4 on Friday evening and sees a confirmation" />
+                <span className="block text-xs font-normal text-ink-soft">Things a customer must be able to do from start to finish. The AI does each one in a real browser, like a customer, and only passes it if it works.</span>
+              </label>
+            )}
             {m.checklist.some((c) => c.lintNote) && (
               <ul className="space-y-1.5 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
                 {m.checklist.filter((c) => c.lintNote).map((c) => (
@@ -270,6 +298,10 @@ function MilestoneCard({ m, data, blocked }: { m: M; data: Loaded; blocked: bool
           </div>
         )}
 
+        {m.submission?.inboxCode && m.state !== "draft" && (
+          <InboxCheck code={m.submission.inboxCode} confirmed={m.submission.inboxConfirmed} ask={isClient && m.state === "passed"}
+            yes={confirmInboxAction.bind(null, m.id, true)} no={confirmInboxAction.bind(null, m.id, false)} />
+        )}
         {isClient && m.state === "passed" && (
           <div className="space-y-3 rounded-lg border border-emerald-200 p-4">
             <form action={approveRelease.bind(null, m.id)}>
